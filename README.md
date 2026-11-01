@@ -156,11 +156,11 @@ SSE 事件类型：`status`、`message`、`message_end`、`interrupt`、`error`�
 
 ```bash
 cd backend
-python scripts/eval_retrieval.py            # 13 条用例，输出 Recall@1/3/5 与 MRR
+python scripts/eval_retrieval.py            # 21 条用例，输出 Recall@1/3/5 与 MRR
 python scripts/eval_retrieval.py --list     # 打印知识库文档清单
 ```
 
-实测（硅基流动 `bge-m3` 向量 + `bge-reranker-v2-m3` 精排，全量 161 个子块）：Recall@1 69.2%、Recall@3 100%、Recall@5 100%、MRR 0.846。重排分数分布与智谱不同，阈值按供应商分开配置（`RAG_MIN_SCORE_SILICONFLOW`，默认 0.08）。
+实测（硅基流动 `bge-m3` 向量 + `bge-reranker-v2-m3` 精排，全量 162 个子切片，21 条用例）：Recall@1 81.0%、Recall@3 100%、Recall@5 100%、MRR 0.905。重排分数分布与智谱不同，阈值按供应商分开配置（`RAG_MIN_SCORE_SILICONFLOW`，默认 0.08）。
 
 ## 测试与验收
 

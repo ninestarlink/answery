@@ -231,8 +231,24 @@ async def _get_order(db: AsyncSession, order_no: str) -> dict:
 async def _get_policies(db: AsyncSession, key: str | None = None) -> dict:
     stmt = select(StorePolicy)
     if key:
-        stmt = stmt.where(StorePolicy.policy_key == key)
+        # 模型常传「shipping」「运费」这类近似词，按 key / 标题模糊匹配，避免精确匹配落空
+        like = f"%{key}%"
+        stmt = stmt.where(
+            or_(
+                StorePolicy.policy_key == key,
+                StorePolicy.policy_key.like(like),
+                StorePolicy.title.like(like),
+            )
+        )
     rows = (await db.scalars(stmt.order_by(StorePolicy.id))).all()
+    if key and not rows:
+        rows = (
+            await db.scalars(
+                select(StorePolicy)
+                .where(StorePolicy.content.like(f"%{key}%"))
+                .order_by(StorePolicy.id)
+            )
+        ).all()
     return {
         "policies": [
             {"key": r.policy_key, "title": r.title, "content": r.content} for r in rows

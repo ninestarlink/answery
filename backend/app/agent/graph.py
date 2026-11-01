@@ -67,7 +67,7 @@ def _llm_client() -> ChatOpenAI:
             model=settings.zhipu_chat_model,
             base_url=settings.zhipu_api_base,
             api_key=settings.zhipu_api_key,
-            temperature=0.3,
+            temperature=0.1,
             timeout=settings.request_timeout,
             max_retries=1,
             streaming=True,
