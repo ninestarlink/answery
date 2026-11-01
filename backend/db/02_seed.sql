@@ -64,7 +64,7 @@ INSERT INTO product_variants (id, product_id, sku, size, color, stock) VALUES
 
 -- ------------------------- 客户 -------------------------
 INSERT INTO customers (id, name, phone, level, role) VALUES
-  ('C0001', '张三', '13800001234', 'gold', 'admin'),
+  ('C0001', '李明', '13800001234', 'gold', 'admin'),
   ('C0002', '李四', '13900002345', 'silver', 'customer');
 
 -- ------------------------- 订单 -------------------------
