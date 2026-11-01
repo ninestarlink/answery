@@ -2,7 +2,7 @@
 
 > AnswerY = **Answer You**。一个自建 RAG + LangGraph Agent 的客服中台：**回答带出处、写操作先审批、全过程可回放**，覆盖电商导购与企业制度问答。
 
-不是两个 Demo 拼在一起，而是一套完整的客服中台：同一套 Agent 运行时、同一条检索链路、同一套鉴权与监控。工作台只有一个输入框——商品、订单、制度问题都能问，系统按语义自动判断该查文档还是调工具，答案带出处、写操作先审批、全程可回放。
+同一套 Agent 运行时、同一条检索链路、同一套鉴权与监控。工作台只有一个输入框——商品、订单、制度问题都能问，系统按语义判断该查文档还是调工具。
 
 ![stack](https://img.shields.io/badge/React-18-149ECA) ![stack](https://img.shields.io/badge/Next.js-14-000000) ![stack](https://img.shields.io/badge/FastAPI-0.162-009688) ![stack](https://img.shields.io/badge/LangGraph-1.2-1C3C3C) ![stack](https://img.shields.io/badge/pgvector-0.8-336791)
 
