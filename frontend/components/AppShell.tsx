@@ -124,11 +124,11 @@ export default function AppShell({
             <span className="absolute -inset-1 -z-10 animate-breathe rounded-2xl bg-gradient-to-br from-brand-400/70 to-fuchsia-400/60 blur-lg" />
           </div>
           <div className="min-w-0">
-            <div className="text-[14.5px] font-semibold tracking-tight-ios text-slate-900">
-              AnswerY
+            <div className="whitespace-nowrap text-[13.5px] font-semibold tracking-tight-ios text-slate-900">
+              AnswerY智能客服中台
             </div>
             <div className="mt-0.5 text-[11.5px] text-slate-500">
-              智能客服中台 · Knowledge Desk
+              Knowledge Desk · 自建 RAG Agent
             </div>
           </div>
         </Link>

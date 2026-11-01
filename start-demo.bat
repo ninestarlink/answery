@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 setlocal
-title AnswerY 智能客服中台 - 一键启动
+title AnswerY智能客服中台 - 一键启动
 
 set "ROOT=%~dp0"
 if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%"

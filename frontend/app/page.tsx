@@ -411,7 +411,7 @@ export default function DashboardPage() {
 
         <footer className="mt-8 flex items-center justify-center gap-2 pb-4 text-[11.5px] text-slate-500">
           <span className="h-1.5 w-1.5 rounded-full bg-gradient-to-br from-brand-500 to-fuchsia-500" />
-          AnswerY 智能客服中台 · React + FastAPI + LangGraph + pgvector · 所有数据均为演示虚构
+          AnswerY智能客服中台 · React + FastAPI + LangGraph + pgvector · 所有数据均为演示虚构
         </footer>
       </div>
     </AppShell>

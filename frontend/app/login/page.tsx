@@ -46,7 +46,7 @@ export default function LoginPage() {
               管理控制台
             </span>
             <h1 className="mt-4 text-[24px] font-semibold leading-tight tracking-tight">
-              登录 AnswerY 智能客服中台
+              登录 AnswerY智能客服中台
             </h1>
             <p className="mt-2 text-[12.5px] leading-relaxed text-white/55">
               控制台接口已启用 JWT + 角色鉴权，仅管理员可访问监控、数据库与索引重建。
