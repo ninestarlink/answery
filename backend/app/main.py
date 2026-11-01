@@ -51,6 +51,8 @@ async def lifespan(app: FastAPI):
 
     if not settings.zhipu_api_key:
         logger.warning("ZHIPU_API_KEY 未配置：聊天与工单分析都会返回明确提示")
+    if settings.embedding_provider == "siliconflow" and not settings.siliconflow_api_key:
+        logger.warning("SILICONFLOW_API_KEY 未配置：向量检索会降级为 BM25（对话不受影响）")
 
     yield
 
@@ -85,6 +87,12 @@ async def health():
         "redis": "ok",
         "pgvector": "ok",
         "zhipu_api_key": bool(settings.zhipu_api_key),
+        "embedding_provider": settings.embedding_provider,
+        "embedding_api_key": bool(
+            settings.siliconflow_api_key
+            if settings.embedding_provider == "siliconflow"
+            else settings.zhipu_api_key
+        ),
     }
     try:
         async with SessionLocal() as db:

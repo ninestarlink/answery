@@ -1,7 +1,7 @@
-"""智谱 API 客户端：embedding-3 + rerank。
+"""向量化 / 精排客户端：支持硅基流动（默认）与智谱，两者都是 HTTP 短请求。
 
-两者都是 HTTP 短请求，不引入额外的 SDK，方便替换供应商。
-失败时向上抛出异常，由检索层降级（保留 RRF 排序），不让检索整体不可用。
+只负责 embedding 与 rerank，对话模型仍由 langgraph 里的智谱调用（glm-4-flash 免费）。
+供应商之间可以随时切换，失败时向上抛异常，由检索层降级为 BM25，不影响对话。
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ import httpx
 
 from ..config import settings
 
-logger = logging.getLogger("rag.zhipu")
+logger = logging.getLogger("rag.embedding")
 
 _EMBED_BATCH = 64
 # 额度不足是持续性故障，短时间内重试没有意义：熔断一段时间直接降级
@@ -22,15 +22,46 @@ _disabled_until = 0.0
 _DISABLE_SECONDS = 300
 
 
-class ZhipuError(RuntimeError):
-    """智谱接口不可用（未配置 Key、额度不足、超时、返回结构异常）。"""
+class ModelAPIError(RuntimeError):
+    """向量化 / 精排接口不可用（未配置 Key、额度不足、超时、返回结构异常）。"""
+
+
+# 兼容旧调用方（检索层按这个名字捕获异常）
+ZhipuError = ModelAPIError
+
+
+def _provider() -> str:
+    """返回当前生效的向量供应商：siliconflow / zhipu。"""
+    name = (settings.embedding_provider or "siliconflow").strip().lower()
+    return name if name in ("siliconflow", "zhipu") else "siliconflow"
+
+
+def _base_url() -> str:
+    if _provider() == "siliconflow":
+        return settings.siliconflow_api_base.rstrip("/")
+    return settings.zhipu_api_base.rstrip("/")
+
+
+def _api_key() -> str:
+    return settings.siliconflow_api_key if _provider() == "siliconflow" else settings.zhipu_api_key
+
+
+def _key_name() -> str:
+    return "SILICONFLOW_API_KEY" if _provider() == "siliconflow" else "ZHIPU_API_KEY"
+
+
+def _model(kind: str) -> str:
+    if _provider() == "siliconflow":
+        return settings.siliconflow_embedding_model if kind == "embedding" else settings.siliconflow_rerank_model
+    return settings.zhipu_embedding_model if kind == "embedding" else settings.zhipu_rerank_model
 
 
 def _headers() -> dict[str, str]:
-    if not settings.zhipu_api_key:
-        raise ZhipuError("未配置 ZHIPU_API_KEY")
+    key = _api_key()
+    if not key:
+        raise ModelAPIError(f"未配置 {_key_name()}（当前向量供应商：{_provider()}）")
     return {
-        "Authorization": f"Bearer {settings.zhipu_api_key}",
+        "Authorization": f"Bearer {key}",
         "Content-Type": "application/json",
     }
 
@@ -38,8 +69,8 @@ def _headers() -> dict[str, str]:
 async def _post(path: str, payload: dict) -> dict:
     global _disabled_until
     if time.time() < _disabled_until:
-        raise ZhipuError("embedding/rerank 额度不可用，已临时熔断")
-    url = f"{settings.zhipu_api_base.rstrip('/')}/{path}"
+        raise ModelAPIError("embedding/rerank 额度不可用，已临时熔断")
+    url = f"{_base_url()}/{path}"
     last_error: Exception | None = None
     for attempt in range(3):
         try:
@@ -47,17 +78,17 @@ async def _post(path: str, payload: dict) -> dict:
                 resp = await client.post(url, json=payload, headers=_headers())
             if resp.status_code == 429 or "1113" in resp.text:
                 _disabled_until = time.time() + _DISABLE_SECONDS
-                raise ZhipuError(f"{path} 额度不足：{resp.text[:120]}")
+                raise ModelAPIError(f"{path} 额度不足：{resp.text[:120]}")
             if resp.status_code != 200:
-                raise ZhipuError(f"{path} 返回 HTTP {resp.status_code}：{resp.text[:200]}")
+                raise ModelAPIError(f"{path} 返回 HTTP {resp.status_code}：{resp.text[:200]}")
             return resp.json()
-        except (httpx.HTTPError, ZhipuError) as exc:
+        except (httpx.HTTPError, ModelAPIError) as exc:
             last_error = exc
-            if isinstance(exc, ZhipuError) and "额度不足" in str(exc):
+            if isinstance(exc, ModelAPIError) and "额度不足" in str(exc):
                 break
             if attempt < 2:
                 await asyncio.sleep(1 + attempt)
-    raise ZhipuError(str(last_error))
+    raise ModelAPIError(str(last_error))
 
 
 async def embed_texts(texts: list[str]) -> list[list[float]]:
@@ -65,11 +96,10 @@ async def embed_texts(texts: list[str]) -> list[list[float]]:
     vectors: list[list[float]] = []
     for start in range(0, len(texts), _EMBED_BATCH):
         batch = texts[start : start + _EMBED_BATCH]
-        payload = {
-            "model": settings.zhipu_embedding_model,
-            "input": batch,
-            "dimensions": settings.rag_embedding_dims,
-        }
+        payload: dict = {"model": _model("embedding"), "input": batch}
+        # 智谱 embedding-3 支持显式指定维度；硅基流动的 bge-m3 固定 1024 维
+        if _provider() == "zhipu":
+            payload["dimensions"] = settings.rag_embedding_dims
         data = await _post("embeddings", payload)
         items = sorted(data.get("data") or [], key=lambda x: x.get("index", 0))
         if len(items) != len(batch):
@@ -83,7 +113,7 @@ async def rerank(query: str, documents: list[str], top_n: int) -> list[tuple[int
     if not documents:
         return []
     payload = {
-        "model": settings.zhipu_rerank_model,
+        "model": _model("rerank"),
         "query": query,
         "documents": documents,
         "top_n": min(top_n, len(documents)),

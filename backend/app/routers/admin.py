@@ -520,6 +520,49 @@ async def _probe_services() -> list[dict]:
             }
         )
 
+    # 向量化 / 精排供应商：与对话模型独立计费，单独探测一次
+    provider = (settings.embedding_provider or "siliconflow").strip().lower()
+    if provider == "siliconflow":
+        base = settings.siliconflow_api_base
+        key, label = settings.siliconflow_api_key, "硅基流动 Embedding / Rerank"
+    else:
+        base = settings.zhipu_api_base
+        key, label = settings.zhipu_api_key, "智谱 Embedding / Rerank"
+    if not key:
+        services.append(
+            {
+                "name": label,
+                "target": base,
+                "status": "unconfigured",
+                "latency_ms": None,
+                "error": f"未配置 {provider.upper()} 的 API Key",
+            }
+        )
+    else:
+        t0 = time.perf_counter()
+        embed_error = None
+        try:
+            async with httpx.AsyncClient(timeout=5.0, trust_env=False) as client:
+                resp = await client.get(
+                    f"{base.rstrip('/')}/models",
+                    headers={"Authorization": f"Bearer {key}"},
+                )
+            latency = round((time.perf_counter() - t0) * 1000, 1)
+            if resp.status_code != 200:
+                embed_error = f"HTTP {resp.status_code}"
+        except Exception as exc:  # noqa: BLE001
+            latency = None
+            embed_error = str(exc)[:200]
+        services.append(
+            {
+                "name": label,
+                "target": base,
+                "status": "ok" if embed_error is None else "down",
+                "latency_ms": latency,
+                "error": embed_error,
+            }
+        )
+
     t0 = time.perf_counter()
     pg_error = None
     try:

@@ -54,10 +54,20 @@ class Settings(BaseSettings):
     # 送进模型的上下文最大字符数
     rag_max_chars: int = 3200
 
-    # ---------- 大模型（智谱，OpenAI 兼容） ----------
+    # ---------- 对话模型（智谱，OpenAI 兼容） ----------
     zhipu_api_base: str = "https://open.bigmodel.cn/api/paas/v4"
     zhipu_api_key: str = ""
     zhipu_chat_model: str = "glm-4-flash"
+
+    # ---------- 向量化 / 精排（默认硅基流动，可与对话模型分开计费） ----------
+    # embedding_provider 取 siliconflow 或 zhipu
+    embedding_provider: str = "siliconflow"
+    siliconflow_api_base: str = "https://api.siliconflow.cn/v1"
+    siliconflow_api_key: str = ""
+    # bge-m3 输出 1024 维，与 rag_embedding_dims / pgvector 表结构一致
+    siliconflow_embedding_model: str = "Pro/BAAI/bge-m3"
+    siliconflow_rerank_model: str = "Pro/BAAI/bge-reranker-v2-m3"
+    # 仅 provider=zhipu 时生效
     zhipu_embedding_model: str = "embedding-3"
     zhipu_rerank_model: str = "rerank"
     # 工单 AI 语义补充的单独开关，未配置时只走规则引擎

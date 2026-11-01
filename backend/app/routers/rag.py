@@ -104,9 +104,11 @@ async def rebuild(req: IngestRequest, _: object = Depends(require_admin)):
 
 @router.get("/health")
 async def health():
-    checks = {"pgvector": "ok", "zhipu_key": "ok" if zhipu.settings.zhipu_api_key else "missing"}
+    provider = zhipu._provider()
+    key = zhipu.settings.siliconflow_api_key if provider == "siliconflow" else zhipu.settings.zhipu_api_key
+    checks = {"pgvector": "ok", "embedding_key": "ok" if key else "missing"}
     try:
         pg = await store.health()
     except Exception as exc:
         pg = {"status": "down", "error": str(exc)}
-    return {"pgvector": pg, "zhipu": checks}
+    return {"pgvector": pg, "embedding": {"provider": provider, **checks}}
