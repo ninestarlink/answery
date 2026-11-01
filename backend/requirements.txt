@@ -1,0 +1,26 @@
+# 版本下限按本机已装环境放宽，避免为了跑通 Demo 反而触发降级安装
+fastapi>=0.115
+uvicorn[standard]>=0.32
+SQLAlchemy>=2.0.36
+greenlet>=3.1.1
+aiomysql>=0.2.0
+PyMySQL>=1.1.1
+# MySQL 8 默认 caching_sha2_password 认证需要（首次连接时做 RSA 公钥交换）
+cryptography>=43.0
+redis>=5.2
+httpx>=0.28
+pydantic>=2.10
+pydantic-settings>=2.7
+# 鉴权：JWT 签发 + bcrypt 密码校验
+PyJWT>=2.10
+bcrypt>=4.2
+# 自建 RAG：pgvector 存向量，asyncpg 直连
+asyncpg>=0.30
+# 多格式文档解析（PDF / Word / Excel）
+pymupdf4llm>=0.0.17
+python-docx>=1.1
+openpyxl>=3.1
+# Agent 编排
+langgraph>=0.2.40
+langchain-openai>=0.2.10
+langchain-core>=0.3.20

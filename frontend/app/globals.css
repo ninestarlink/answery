@@ -1,0 +1,377 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== 全局基础样式 ===== */
+html,
+body {
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display',
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue',
+    Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  color: #0b1220;
+  background-color: #f5f5f7;
+}
+
+/* iOS 风格：正文字距略微收紧，标题更紧凑 */
+.tracking-tight-ios {
+  letter-spacing: -0.022em;
+}
+
+/* ===== 毛玻璃面板 ===== */
+.glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+.glass-strong {
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(30px) saturate(190%);
+  -webkit-backdrop-filter: blur(30px) saturate(190%);
+}
+.hairline {
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06);
+}
+
+/* 底部安全区（iPhone 刘海屏/横条） */
+.pb-safe {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* ===== 自定义滚动条 ===== */
+.nice-scroll::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.nice-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(100, 116, 139, 0.22);
+  border-radius: 9999px;
+}
+.nice-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(100, 116, 139, 0.38);
+}
+.nice-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ===== Markdown 正文排版（react-markdown 渲染容器） ===== */
+.md-body {
+  @apply text-[15.5px] leading-[1.75] text-slate-800 break-words;
+}
+.md-body p {
+  @apply my-2;
+}
+.md-body p:first-child {
+  @apply mt-0;
+}
+.md-body p:last-child {
+  @apply mb-0;
+}
+.md-body h1 {
+  @apply text-lg font-semibold text-slate-900 mt-4 mb-2 tracking-tight-ios;
+}
+.md-body h2 {
+  @apply text-base font-semibold text-slate-900 mt-3 mb-2 tracking-tight-ios;
+}
+.md-body h3 {
+  @apply text-[15px] font-semibold text-slate-900 mt-3 mb-1;
+}
+.md-body ul {
+  @apply list-disc pl-5 my-2;
+}
+.md-body ol {
+  @apply list-decimal pl-5 my-2;
+}
+.md-body li {
+  @apply my-1;
+}
+.md-body li::marker {
+  @apply text-brand-500;
+}
+.md-body strong {
+  @apply font-semibold text-slate-900;
+}
+.md-body a {
+  @apply text-brand-600 underline underline-offset-2;
+}
+/* 行内代码 */
+.md-body code:not(pre code) {
+  @apply rounded-md bg-slate-100/90 px-1.5 py-0.5 font-mono text-[13px] text-pink-600;
+}
+/* 代码块 */
+.md-body pre {
+  @apply my-3 overflow-x-auto rounded-2xl bg-slate-900 p-4 text-[13px] leading-6;
+}
+.md-body pre code {
+  @apply font-mono text-slate-100;
+}
+/* 表格（GFM） */
+.md-body table {
+  @apply my-3 w-full border-collapse overflow-hidden rounded-xl text-[13.5px];
+}
+.md-body th {
+  @apply border border-slate-200/80 bg-slate-50/80 px-3 py-2 text-left font-semibold text-slate-700;
+}
+.md-body td {
+  @apply border border-slate-200/80 px-3 py-2 text-slate-700;
+}
+/* 引用块 */
+.md-body blockquote {
+  @apply my-3 border-l-[3px] border-brand-200 pl-3.5 text-slate-500;
+}
+.md-body hr {
+  @apply my-4 border-slate-200/70;
+}
+
+/* ===== 流式输出的闪烁光标 ===== */
+.typing-cursor {
+  display: inline-block;
+  width: 7px;
+  height: 16px;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  border-radius: 1.5px;
+  background-color: #6366f1;
+  animation: blink 1s steps(2, start) infinite;
+}
+@keyframes blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+/* "正在思考"三点动画 */
+.loading-dots span {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin: 0 2px;
+  border-radius: 9999px;
+  background-color: #94a3b8;
+  animation: bounce 1.2s infinite ease-in-out;
+}
+.loading-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.loading-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes bounce {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  40% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+/* ===== 流式文本的微光扫过（用于“生成中”骨架） ===== */
+.shimmer {
+  background-image: linear-gradient(
+    90deg,
+    rgba(99, 102, 241, 0) 0%,
+    rgba(99, 102, 241, 0.16) 50%,
+    rgba(99, 102, 241, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2.4s linear infinite;
+}
+
+/* 按压缩放：更接近 iOS 的触感反馈 */
+.press {
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.18s ease, background-color 0.18s ease, color 0.18s ease;
+}
+.press:active {
+  transform: scale(0.97);
+}
+
+/* ===== 视觉升级：氛围背景 / 渐变标题 / 光泽动效 ===== */
+/* 极光色块：低饱和 + 大模糊，避免抢内容焦点 */
+.aurora-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(72px);
+  will-change: transform;
+}
+.aura-indigo {
+  background: radial-gradient(
+    circle at 35% 35%,
+    rgba(129, 140, 255, 0.55),
+    rgba(167, 139, 250, 0.26) 50%,
+    transparent 72%
+  );
+}
+.aura-cyan {
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(125, 211, 252, 0.42),
+    rgba(165, 243, 252, 0.2) 52%,
+    transparent 72%
+  );
+}
+.aura-pink {
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(240, 171, 252, 0.32),
+    transparent 70%
+  );
+}
+
+/* 浅色画布基底 */
+.ambient-canvas {
+  background: radial-gradient(
+    130% 90% at 50% -10%,
+    #ffffff 0%,
+    #f5f5f7 42%,
+    #eef1f8 100%
+  );
+}
+/* 深色 Hero 基底 */
+.hero-night {
+  background:
+    radial-gradient(120% 120% at 12% 0%, rgba(99, 102, 241, 0.38) 0%, transparent 56%),
+    radial-gradient(100% 100% at 92% 18%, rgba(217, 70, 239, 0.24) 0%, transparent 56%),
+    linear-gradient(135deg, #0b1220 0%, #101a33 55%, #171333 100%);
+}
+
+/* 顶部点阵网格，向四周渐隐 */
+.dot-grid {
+  background-image: radial-gradient(rgba(15, 23, 42, 0.11) 1px, transparent 1px);
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(ellipse 78% 62% at 50% 0%, #000 0%, transparent 78%);
+  mask-image: radial-gradient(ellipse 78% 62% at 50% 0%, #000 0%, transparent 78%);
+}
+.dot-grid-dark {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.20) 1px, transparent 1px);
+  background-size: 24px 24px;
+  -webkit-mask-image: radial-gradient(ellipse 72% 72% at 72% 18%, #000 0%, transparent 76%);
+  mask-image: radial-gradient(ellipse 72% 72% at 72% 18%, #000 0%, transparent 76%);
+}
+
+/* 渐变标题：深色 Hero 用 aurora 版，浅色页面用 brand 版 */
+.text-gradient-aurora {
+  background-image: linear-gradient(
+    100deg,
+    #ffffff 0%,
+    #dfe3ff 38%,
+    #a5b1ff 64%,
+    #f0abfc 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.text-gradient-brand {
+  background-image: linear-gradient(100deg, #5158e8 0%, #6d5ef6 45%, #c026d3 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* 卡片悬停时掠过的光泽 */
+.sheen {
+  position: relative;
+  isolation: isolate;
+}
+.sheen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 32%,
+    rgba(255, 255, 255, 0.36) 47%,
+    transparent 62%
+  );
+  transform: translateX(-130%);
+}
+.sheen:hover::after {
+  opacity: 1;
+  animation: sheenSweep 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes sheenSweep {
+  from {
+    transform: translateX(-130%);
+  }
+  to {
+    transform: translateX(130%);
+  }
+}
+
+/* 旋转的锥形渐变描边（用于 Logo 与空状态光球） */
+.conic-ring {
+  background: conic-gradient(
+    from 0deg,
+    rgba(129, 140, 255, 0) 0deg,
+    rgba(129, 140, 255, 0.95) 70deg,
+    rgba(240, 171, 252, 0.85) 150deg,
+    rgba(129, 140, 255, 0) 220deg,
+    rgba(129, 140, 255, 0) 360deg
+  );
+  animation: spinConic 7s linear infinite;
+}
+@keyframes spinConic {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 运行中的呼吸光点 */
+.live-dot {
+  animation: livePulse 2.4s ease-out infinite;
+}
+@keyframes livePulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgba(52, 211, 153, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0);
+  }
+}
+
+/* 选中文字与键盘焦点 */
+::selection {
+  background: rgba(99, 102, 241, 0.22);
+}
+:focus-visible {
+  outline: 2px solid rgba(99, 102, 241, 0.45);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

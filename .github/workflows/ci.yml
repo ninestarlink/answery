@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    name: 后端 / 语法与导入检查
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: 安装依赖
+        working-directory: backend
+        run: pip install -r requirements.txt
+      - name: 编译检查
+        working-directory: backend
+        run: python -m compileall -q app scripts
+      - name: 导入核心模块（不连数据库）
+        working-directory: backend
+        env:
+          SECRET_KEY: ci-test
+          ZHIPU_API_KEY: ''
+        run: |
+          python -c "from app.rag import bm25, chunker, parser"
+          python -c "from app.agent import graph"
+
+  frontend:
+    name: 前端 / 类型检查与构建
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: 安装依赖
+        working-directory: frontend
+        run: npm ci
+      - name: 类型检查
+        working-directory: frontend
+        run: npx tsc --noEmit
+      - name: 生产构建
+        working-directory: frontend
+        run: npm run build
+
+  secret-scan:
+    name: 敏感信息扫描
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 确认没有提交 .env
+        run: |
+          set -e
+          if git ls-files | grep -E '(^|/)\.env(\.local)?$|\.pem$|\.key$'; then
+            echo "发现敏感文件被提交，请从版本库移除"
+            exit 1
+          fi
+          echo "未发现 .env / 密钥文件"

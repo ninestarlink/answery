@@ -1,0 +1,70 @@
+# 演示用 MySQL + Redis
+# 注意：不要和 Dify 的 docker-compose 混在一起，Dify 自带的 postgres/redis 不能复用。
+# 首次启动会自动执行 db/*.sql 完成建表和灌数据。
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: ecom-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root123456
+      MYSQL_DATABASE: ecom_ai_demo
+      MYSQL_USER: ecom
+      MYSQL_PASSWORD: ecom123456
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+08:00
+    ports:
+      - "3306:3306"
+    volumes:
+      - ecom_mysql_data:/var/lib/mysql
+      - ./db/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./db/02_seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot123456"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: ecom-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - ecom_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 自建知识库：向量库与业务库分开，pgvector 提供向量索引 + 元数据过滤
+  pgvector:
+    image: pgvector/pgvector:pg16
+    container_name: ecom-pgvector
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: rag
+      POSTGRES_USER: rag
+      POSTGRES_PASSWORD: rag123456
+      TZ: Asia/Shanghai
+    ports:
+      - "5433:5432"
+    volumes:
+      - ecom_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rag -d rag"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  ecom_mysql_data:
+  ecom_redis_data:
+  ecom_pg_data:

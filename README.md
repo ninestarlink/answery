@@ -1,0 +1,178 @@
+# AnswerY · 智能客服中台
+
+> AnswerY = **Answer You**。一套知识库驱动的客服中台，同时支撑**电商导购**与**企业制度问答**两个场景。
+
+不是两个 Demo 拼在一起，而是一个平台：同一套 Agent 运行时、同一套检索链路、同一套鉴权与监控，两个业务只是各自绑定一份知识库和一组工具，在工作台里一键切换。
+
+![stack](https://img.shields.io/badge/React-18-149ECA) ![stack](https://img.shields.io/badge/Next.js-14-000000) ![stack](https://img.shields.io/badge/FastAPI-0.162-009688) ![stack](https://img.shields.io/badge/LangGraph-1.2-1C3C3C) ![stack](https://img.shields.io/badge/pgvector-0.8-336791)
+
+## 这个项目解决什么问题
+
+企业做客服智能化，常见做法是接一个开源问答平台，把文档丢进去，然后被三个问题卡住：
+
+1. **回答不可追溯**：员工或客户追问「依据是哪份文件、哪一版」，系统答不上来；
+2. **只会说话不会办事**：查订单、查物流、建工单这类动作，纯 RAG 做不到；
+3. **不可控**：写操作（建工单、退款）直接执行，出问题没人兜底。
+
+AnswerY 针对这三点做了完整闭环：**引用到章节与页码 → 工具调用 → 写操作人工审批 → 全链路轨迹可查**。
+
+## 功能一览
+
+### 一、自建 RAG（不依赖任何外部知识库平台）
+
+- **多格式解析**：PDF / DOCX / XLSX / Markdown / TXT
+- **父子切片**：父块保留完整章节上下文，子块用于向量召回，命中后回溯父块，避免「一句半句」式引用
+- **混合检索**：pgvector（HNSW，1024 维）+ 中文二元组 BM25，RRF 融合排序，再走一轮 rerank
+- **引用溯源**：回答末尾标注「文档名｜文档编号｜版本｜章节｜页码」，前端来源卡片只展示答案真正引用到的文档
+- **降级策略**：模型额度 429 时熔断 300 秒并自动降级为 BM25-only，前端明确提示「本轮为降级检索」，不假装正常
+
+### 二、Agent 编排（LangGraph）
+
+- 意图路由：先判断「查知识 / 调工具 / 直答」，再决定是否进工具循环
+- 6 个业务工具：商品检索、商品详情、订单查询、店铺政策、优惠券、创建升级工单
+- **真实体归一**：问题里的商品名 / 订单号先做一次确定性解析，把真实 `product_id` 写进约束，避免模型瞎猜 ID
+
+### 三、人工审批（HITL）
+
+- 写操作（`create_escalation_ticket`）触发 LangGraph `interrupt()`，图停在审批节点
+- 前端弹出审批卡片：动作、参数、原因一目了然，可批准 / 拒绝
+- 批准 → 继续执行工具；拒绝 → 注入一条 `ToolMessage`，模型改走自助方案
+- 审批状态由 checkpointer 持有，通过 `POST /api/chat/resume` 恢复，SSE 流不中断体验
+
+### 四、可观测与安全
+
+- **对话轨迹**：每轮写入 `chat_trace`（命中数、工具、降级原因、首 Token 延迟、总耗时、Token 用量）
+- **鉴权闭环**：JWT（含 `role` claim）+ bcrypt 密码 + RBAC，管理端与索引重建接口均需 admin
+- **工具幂等**：建工单按「报障人 + 描述」做 10 分钟 Redis 去重，模型重试不会重复建单
+- **额度保护**：单会话 10 分钟 30 轮、全站每天 1000 轮，Redis 故障时放行不影响可用性
+- **敏感信息**：`.env`、日志、缓存全部 gitignore；演示数据均为虚构
+
+## 架构
+
+```text
+┌────────────────────────────── 浏览器（Next.js 15 / React 19）──────────────────────────────┐
+│  统一工作台：知识库切换 · 对话流 · 审批卡片 · 来源卡片 · 知识库管理 · 运行监控               │
+└───────────────┬──────────────────────────────────────────────────────────────────────────────┘
+                │ 同源 /api（rewrites 转发，避免跨域）
+┌───────────────▼──────────────────────────── FastAPI ──────────────────────────────────────────┐
+│ 鉴权层   JWT + bcrypt + RBAC                       SSE 层   统一事件帧（status/message/…）   │
+│ ─────────────────────────────────────────────────────────────────────────────────────────── │
+│ 编排层   LangGraph：route → agent ⇄ tools → approval(interrupt) → resume                      │
+│ 检索层   解析 → 父子切片 → embedding → pgvector+BM25 → RRF → rerank → 证据链                 │
+│ 工具层   商品 / 订单 / 政策 / 优惠券 / 工单（Redis 幂等）                                     │
+│ 记账层   chat_history（Token 成本） · chat_trace（执行轨迹）                                  │
+└──────────┬───────────────────────┬──────────────────────────────┬───────────────────────────┘
+           │                       │                              │
+      MySQL 8                 Redis 7                    PostgreSQL + pgvector
+   业务库/会话/轨迹      历史上下文/额度/幂等        知识库向量（独立实例，端口 5433）
+```
+
+## 目录结构
+
+```text
+.
+├── backend/
+│   ├── app/
+│   │   ├── agent/          # LangGraph 图、工具、提示词
+│   │   ├── rag/            # 解析、切片、embedding、向量库、BM25、检索编排
+│   │   ├── routers/        # chat / rag / admin / auth / tickets / tools
+│   │   ├── config.py       # 环境变量
+│   │   ├── models.py       # ORM
+│   │   └── main.py         # 应用入口与健康检查
+│   ├── db/                 # 建表与种子数据（首次启动自动执行）
+│   ├── scripts/eval_retrieval.py   # 检索评测脚本
+│   └── docker-compose.yml  # MySQL / Redis / pgvector
+├── frontend/               # Next.js 14 App Router
+│   ├── app/                # 页面：工作台、知识库、监控、登录
+│   ├── components/         # 对话、消息、审批卡、来源卡、侧栏
+│   └── lib/                # SSE 客户端、鉴权、会话 store
+├── enterprise_kb/          # 企业制度知识库（7 份虚构文档）
+├── shop_kb/                # 电商商品知识库
+└── start-demo.bat          # Windows 一键启动
+```
+
+## 快速开始
+
+前置：Docker Desktop、Python 3.11+、Node.js 20+。
+
+```bash
+# 1. 启动 MySQL / Redis / pgvector
+docker compose -f backend/docker-compose.yml up -d
+
+# 2. 后端
+cd backend
+python -m venv .venv
+.venv\Scripts\activate            # macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+copy .env.example .env            # 填入 ZHIPU_API_KEY
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+# 3. 前端
+cd ../frontend
+npm install
+npm run dev
+```
+
+打开 <http://localhost:3000>，用演示账号登录：
+
+| 角色 | 手机号 | 密码 | 权限 |
+| --- | --- | --- | --- |
+| 管理员 | 13800001234 | demo1234 | 知识库管理、索引重建、监控、数据库浏览 |
+| 普通客户 | 13900002345 | demo1234 | 仅对话 |
+
+Windows 用户也可以直接双击 `start-demo.bat`（需 Node 已在 PATH 中）。
+
+首次对话前需要在「知识库」页点一次**重建索引**：文档解析 → 切片 → 向量化 → 写入 pgvector。没有配置 `ZHIPU_API_KEY` 时只能走 BM25 检索，回答质量会明显下降。
+
+## 环境变量
+
+完整清单见 [backend/.env.example](backend/.env.example)。关键项：
+
+| 变量 | 说明 |
+| --- | --- |
+| `SECRET_KEY` | JWT 签名密钥，**生产必须替换** |
+| `DEMO_PASSWORD` | 无 bcrypt 哈希账号的回落密码 |
+| `ZHIPU_API_KEY` | 对话 / 向量 / 重排，缺失时检索自动降级 |
+| `PG_DSN` | pgvector 连接串（容器端口 5433） |
+| `HISTORY_ROUNDS` | 携带的历史轮数，默认 3 |
+
+## API 概览
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | `/api/chat/chat` | 对话主链路，返回 SSE 流 |
+| POST | `/api/chat/resume` | 恢复被中断的审批（`thread_id` + `approved`） |
+| POST | `/api/rag/ingest` | 重建知识库索引（admin） |
+| GET | `/api/rag/kbs/{kb_id}/documents` | 知识库文档清单 |
+| GET | `/api/admin/traces` | 最近对话轨迹（admin） |
+| GET | `/api/admin/overview` `/monitor` `/services` | 概览、监控、依赖健康（admin） |
+| POST | `/api/auth/login` | 登录，返回 JWT |
+
+SSE 事件类型：`status`、`message`、`message_end`、`interrupt`、`error`、`[DONE]`。
+
+## 检索评测
+
+```bash
+cd backend
+python scripts/eval_retrieval.py            # 13 条用例，输出 Recall@1/3/5 与 MRR
+python scripts/eval_retrieval.py --list     # 打印知识库文档清单
+```
+
+基线（BM25-only 降级状态）：Recall@1 69.2%、Recall@3 100%、MRR 0.846。配置 `ZHIPU_API_KEY` 恢复向量检索后指标更高。
+
+## 测试与验收
+
+- 端到端冒烟脚本：`backend/scripts/smoke_test.py`（鉴权、问答、审批中断与恢复、轨迹落库）
+- 检索评测脚本：`backend/scripts/eval_retrieval.py`（Recall@k / MRR）
+- 实际运行记录与环境信息：[docs/TESTING.md](docs/TESTING.md)
+- CI：GitHub Actions 跑后端编译与导入检查、前端类型检查与生产构建、敏感文件扫描
+
+## 说明
+
+- 本项目所有商品、订单、员工、供应商、制度文档均为**虚构演示数据**，与真实企业无关。
+- 写操作审批是为演示「AI 不越权」设计的最小闭环，接入真实业务时请把审批人身份、审计日志与工单系统打通。
+- 演示环境的口令与端口均为默认值，**上线前请全部替换**。
+
+## License
+
+[MIT](LICENSE)

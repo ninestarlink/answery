@@ -1,0 +1,35 @@
+# ===== 密钥与本地配置（切勿提交）=====
+backend/.env
+frontend/.env.local
+frontend/.env*.local
+*.pem
+*.key
+
+# ===== Python =====
+backend/.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# ===== Node / Next.js =====
+frontend/node_modules/
+frontend/.next/
+frontend/*.tsbuildinfo
+
+# ===== 运行时产物 =====
+*.log
+backend/static/
+backend/uvicorn*.log
+frontend/next*.log
+
+# ===== 可再生的中间缓存 =====
+# 知识库父子切片缓存，由 RAG 入库流程自动生成
+enterprise_kb/_pc/
+
+# ===== 本地遗留演示数据 =====
+# 已下线功能（报价对比）留下的文件，不入库
+supplier_quotes/
+
+# ===== 系统 =====
+.DS_Store
+Thumbs.db
