@@ -60,13 +60,13 @@ _graph = None
 
 
 def _llm_client() -> ChatOpenAI:
-    """智谱 OpenAI 兼容接口；流式开启 usage 统计，便于 Token 记账。"""
+    """对话模型（OpenAI 兼容接口）；流式开启 usage 统计，便于 Token 记账。"""
     global _llm
     if _llm is None:
         _llm = ChatOpenAI(
-            model=settings.zhipu_chat_model,
-            base_url=settings.zhipu_api_base,
-            api_key=settings.zhipu_api_key,
+            model=settings.chat_model,
+            base_url=settings.chat_api_base,
+            api_key=settings.chat_api_key,
             temperature=0.1,
             timeout=settings.request_timeout,
             max_retries=1,

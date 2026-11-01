@@ -483,14 +483,15 @@ async def _probe_services() -> list[dict]:
         }
     )
 
-    if not settings.zhipu_api_key:
+    chat_label = "硅基流动对话模型" if settings.chat_provider == "siliconflow" else "智谱 GLM API"
+    if not settings.chat_api_key:
         services.append(
             {
-                "name": "智谱 GLM API",
-                "target": settings.zhipu_api_base,
+                "name": chat_label,
+                "target": settings.chat_api_base,
                 "status": "unconfigured",
                 "latency_ms": None,
-                "error": "未配置 ZHIPU_API_KEY",
+                "error": "未配置对话模型 API Key",
             }
         )
     else:
@@ -500,8 +501,8 @@ async def _probe_services() -> list[dict]:
         try:
             async with httpx.AsyncClient(timeout=5.0, trust_env=False) as client:
                 resp = await client.get(
-                    f"{settings.zhipu_api_base.rstrip('/')}/models",
-                    headers={"Authorization": f"Bearer {settings.zhipu_api_key}"},
+                    f"{settings.chat_api_base.rstrip('/')}/models",
+                    headers={"Authorization": f"Bearer {settings.chat_api_key}"},
                 )
             latency = round((time.perf_counter() - t0) * 1000, 1)
             if resp.status_code != 200:
@@ -512,8 +513,8 @@ async def _probe_services() -> list[dict]:
 
         services.append(
             {
-                "name": "智谱 GLM API",
-                "target": f"{settings.zhipu_api_base} · {settings.zhipu_chat_model}",
+                "name": chat_label,
+                "target": f"{settings.chat_api_base} · {settings.chat_model}",
                 "status": "ok" if model_error is None else "down",
                 "latency_ms": latency,
                 "error": model_error,

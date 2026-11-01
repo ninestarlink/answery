@@ -575,7 +575,7 @@ def _final_frames(question: str, acc: dict, started: float) -> list[str]:
                 "event": "message_end",
                 "metadata": {
                     "usage": acc["usage"],
-                    "model": settings.zhipu_chat_model,
+                    "model": settings.chat_model,
                     "latency_ms": latency_ms,
                     "rag": acc["retrieval"],
                     "first_token_ms": acc["first_token_ms"],
@@ -679,7 +679,7 @@ async def _event_stream(
 
     # 先落库再收尾：前端收到 message_end 会立刻断开，之后再写会和生成器一起被取消
     await _save_history(app, session_id, question, answer)
-    await _persist(session_id, customer_id, question, answer, acc["usage"], settings.zhipu_chat_model, latency_ms)
+    await _persist(session_id, customer_id, question, answer, acc["usage"], settings.chat_model, latency_ms)
     await _persist_trace(session_id, app, question, acc, status="ok", latency_ms=latency_ms)
     await _drop_checkpoint(thread_id)
 
@@ -750,7 +750,7 @@ async def _resume_stream(thread_id: str, approved: bool, by: str, started: float
         return
 
     await _save_history(app, session_id, question, answer)
-    await _persist(session_id, customer_id, question, answer, acc["usage"], settings.zhipu_chat_model, latency_ms)
+    await _persist(session_id, customer_id, question, answer, acc["usage"], settings.chat_model, latency_ms)
     await _persist_trace(session_id, app, question, acc, status="ok", latency_ms=latency_ms)
     await _drop_checkpoint(thread_id)
 

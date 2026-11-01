@@ -6,6 +6,12 @@
 
 ![stack](https://img.shields.io/badge/React-18-149ECA) ![stack](https://img.shields.io/badge/Next.js-14-000000) ![stack](https://img.shields.io/badge/FastAPI-0.162-009688) ![stack](https://img.shields.io/badge/LangGraph-1.2-1C3C3C) ![stack](https://img.shields.io/badge/pgvector-0.8-336791)
 
+## 界面预览
+
+| 智能客服：单输入框跨库问答，回答带章节与来源卡片 | 系统监控：依赖健康、Token 消耗、最近执行轨迹 |
+| --- | --- |
+| <img src="docs/screenshots/chat.png" width="520" /> | <img src="docs/screenshots/monitor.png" width="520" /> |
+
 ## 这个项目解决什么问题
 
 企业做客服智能化，常见做法是接一个开源问答平台，把文档丢进去，然后被三个问题卡住：
@@ -130,7 +136,7 @@ cd backend
 python -m venv .venv
 .venv\Scripts\activate            # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
-copy .env.example .env            # 填入 ZHIPU_API_KEY 与 SILICONFLOW_API_KEY
+copy .env.example .env            # 填入 SILICONFLOW_API_KEY（对话/向量/精排）
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 # 3. 前端
@@ -158,8 +164,10 @@ Windows 用户也可以直接双击 `start-demo.bat`（需 Node 已在 PATH 中�
 | --- | --- |
 | `SECRET_KEY` | JWT 签名密钥，**生产必须替换** |
 | `DEMO_PASSWORD` | 无 bcrypt 哈希账号的回落密码 |
-| `ZHIPU_API_KEY` | 对话模型 `glm-4-flash` |
-| `SILICONFLOW_API_KEY` | 向量与精排（`bge-m3` / `bge-reranker-v2-m3`），缺失时检索自动降级为 BM25 |
+| `SILICONFLOW_API_KEY` | 对话、向量、精排统一使用（`CHAT_PROVIDER=siliconflow`） |
+| `CHAT_PROVIDER` / `SILICONFLOW_CHAT_MODEL` | 对话供应商与模型，默认 `siliconflow` / `deepseek-ai/DeepSeek-V4.1-Flash` |
+| `ZHIPU_API_KEY` | 备用对话供应商（`CHAT_PROVIDER=zhipu` 时生效，工单 AI 补充也用它） |
+| `SILICONFLOW_EMBEDDING_MODEL` / `SILICONFLOW_RERANK_MODEL` | 向量与精排模型，默认 `bge-m3` / `bge-reranker-v2-m3`，缺失时检索降级为 BM25 |
 | `EMBEDDING_PROVIDER` | 向量/精排供应商，默认 `siliconflow`，可切回 `zhipu` |
 | `PG_DSN` | pgvector 连接串（容器端口 5433） |
 | `HISTORY_ROUNDS` | 携带的历史轮数，默认 3 |

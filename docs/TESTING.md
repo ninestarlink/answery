@@ -11,7 +11,7 @@
 | 后端 | Python 3.12.8 / FastAPI 0.162.0 / LangGraph 1.2.x |
 | 前端 | Node 20.18.1 / Next.js 14.2.15 / React 18.3.1 |
 | 依赖 | MySQL 8.0（3306）、Redis 7（6379）、pgvector 0.8.7（5433，162 条子切片 / 134 个父块） |
-| 模型 | 对话：智谱 `glm-4-flash`；向量：硅基流动 `Pro/BAAI/bge-m3`（1024 维）；精排：硅基流动 `Pro/BAAI/bge-reranker-v2-m3` |
+| 模型 | 对话：硅基流动 `deepseek-ai/DeepSeek-V4.1-Flash`（`CHAT_PROVIDER=siliconflow`，智谱 `glm-4-flash` 保留备用）；向量：硅基流动 `Pro/BAAI/bge-m3`（1024 维）；精排：硅基流动 `Pro/BAAI/bge-reranker-v2-m3` |
 
 ## 一、端到端冒烟测试
 

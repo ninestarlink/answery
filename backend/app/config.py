@@ -56,7 +56,10 @@ class Settings(BaseSettings):
     # 送进模型的上下文最大字符数
     rag_max_chars: int = 3200
 
-    # ---------- 对话模型（智谱，OpenAI 兼容） ----------
+    # ---------- 对话模型（默认硅基流动；智谱配置保留备用） ----------
+    # chat_provider 取 siliconflow 或 zhipu
+    chat_provider: str = "siliconflow"
+    siliconflow_chat_model: str = "deepseek-ai/DeepSeek-V3.2"
     zhipu_api_base: str = "https://open.bigmodel.cn/api/paas/v4"
     zhipu_api_key: str = ""
     zhipu_chat_model: str = "glm-4-flash"
@@ -105,6 +108,25 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    # ---------- 对话模型解析 ----------
+    @property
+    def chat_api_base(self) -> str:
+        if self.chat_provider == "siliconflow":
+            return self.siliconflow_api_base
+        return self.zhipu_api_base
+
+    @property
+    def chat_api_key(self) -> str:
+        if self.chat_provider == "siliconflow":
+            return self.siliconflow_api_key
+        return self.zhipu_api_key
+
+    @property
+    def chat_model(self) -> str:
+        if self.chat_provider == "siliconflow":
+            return self.siliconflow_chat_model
+        return self.zhipu_chat_model
 
 
 settings = Settings()
