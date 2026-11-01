@@ -108,7 +108,7 @@ export default function KnowledgePage() {
               知识库
             </h1>
             <p className="mt-1 text-[13px] text-slate-600">
-              两份独立知识库，均为 Embedding + 混合检索 + Rerank 精排；点开文档可核对原文。
+              统一走 Embedding + 混合检索 + Rerank 精排，检索时按问题语义挑用；点开文档可核对原文。
             </p>
           </div>
           <span className="rounded-full bg-emerald-50 px-3 py-1 text-[12px] font-medium text-emerald-600">
