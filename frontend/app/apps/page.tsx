@@ -25,7 +25,7 @@ export default function WorkspacePage() {
           app="auto"
           accent="indigo"
           title="智能客服"
-          subtitle="商品 · 订单 · 售后 · 企业制度，一个入口全都能问"
+          subtitle="答案带出处 · 写操作先审批 · 全程可回放"
           placeholder="问商品、查订单，或问公司制度，例如「一线城市出差住宿上限是多少」……"
           emptyDesc="商品导购、订单物流、退换售后，以及公司制度、报销、假期规则，都在这一个对话里。直接问就行，我会自动判断该查商品库还是制度库。"
           quickQuestions={QUICK_QUESTIONS}

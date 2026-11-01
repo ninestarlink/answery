@@ -50,7 +50,9 @@ class Settings(BaseSettings):
     # RRF 融合常数，经验值 60
     rag_rrf_k: int = 60
     # 精排分数阈值，低于该值视为「没有依据」
+    # 两家 rerank 的分数量纲不同：智谱 rerank 常见 0.5-0.95，bge-reranker 压缩在 0.0-0.3
     rag_min_score: float = 0.3
+    rag_min_score_siliconflow: float = 0.08
     # 送进模型的上下文最大字符数
     rag_max_chars: int = 3200
 

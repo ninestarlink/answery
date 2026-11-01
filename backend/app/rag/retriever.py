@@ -213,7 +213,12 @@ async def search(
         )
 
     if rerank_scores:
-        candidates = [c for c in candidates if (c["score"] or 0) >= settings.rag_min_score]
+        min_score = (
+            settings.rag_min_score_siliconflow
+            if zhipu._provider() == "siliconflow"
+            else settings.rag_min_score
+        )
+        candidates = [c for c in candidates if (c["score"] or 0) >= min_score]
     candidates.sort(key=lambda x: x["final_score"], reverse=True)
     hits = candidates[: (top_k or settings.rag_rerank_top_k)]
 

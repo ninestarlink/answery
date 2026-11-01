@@ -2,7 +2,7 @@
 
 > AnswerY = **Answer You**。一套知识库驱动的客服中台，同时支撑**电商导购**与**企业制度问答**两个场景。
 
-不是两个 Demo 拼在一起，而是一个平台：同一套 Agent 运行时、同一套检索链路、同一套鉴权与监控，两个业务只是各自绑定一份知识库和一组工具；工作台只有一个输入框，两类知识库同时召回、按问题语义挑用。
+不是两个 Demo 拼在一起，而是一套完整的客服中台：同一套 Agent 运行时、同一条检索链路、同一套鉴权与监控。工作台只有一个输入框——商品、订单、制度问题都能问，系统按语义自动判断该查文档还是调工具，答案带出处、写操作先审批、全程可回放。
 
 ![stack](https://img.shields.io/badge/React-18-149ECA) ![stack](https://img.shields.io/badge/Next.js-14-000000) ![stack](https://img.shields.io/badge/FastAPI-0.162-009688) ![stack](https://img.shields.io/badge/LangGraph-1.2-1C3C3C) ![stack](https://img.shields.io/badge/pgvector-0.8-336791)
 
@@ -86,8 +86,8 @@ AnswerY 针对这三点做了完整闭环：**引用到章节与页码 → 工�
 │   ├── app/                # 页面：工作台、知识库、监控、登录
 │   ├── components/         # 对话、消息、审批卡、来源卡、侧栏
 │   └── lib/                # SSE 客户端、鉴权、会话 store
-├── enterprise_kb/          # 企业制度知识库（7 份虚构文档）
-├── shop_kb/                # 电商商品知识库
+├── enterprise_kb/          # 企业制度知识库（11 份虚构文档：手册/报销/采购/安全/合规等）
+├── shop_kb/                # 电商商品知识库（5 份：商品、配送、退换、券、尺码）
 └── start-demo.bat          # Windows 一键启动
 ```
 
@@ -104,7 +104,7 @@ cd backend
 python -m venv .venv
 .venv\Scripts\activate            # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
-copy .env.example .env            # 填入 ZHIPU_API_KEY
+copy .env.example .env            # 填入 ZHIPU_API_KEY 与 SILICONFLOW_API_KEY
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 # 3. 前端
@@ -122,7 +122,7 @@ npm run dev
 
 Windows 用户也可以直接双击 `start-demo.bat`（需 Node 已在 PATH 中）。
 
-首次对话前需要在「知识库」页点一次**重建索引**：文档解析 → 切片 → 向量化 → 写入 pgvector。没有配置 `ZHIPU_API_KEY` 时只能走 BM25 检索，回答质量会明显下降。
+首次对话前需要在「知识库」页点一次**重建索引**：文档解析 → 切片 → 向量化 → 写入 pgvector。没有配置 `SILICONFLOW_API_KEY` 时只能走 BM25 检索，回答质量会明显下降。
 
 ## 环境变量
 
@@ -132,7 +132,9 @@ Windows 用户也可以直接双击 `start-demo.bat`（需 Node 已在 PATH 中�
 | --- | --- |
 | `SECRET_KEY` | JWT 签名密钥，**生产必须替换** |
 | `DEMO_PASSWORD` | 无 bcrypt 哈希账号的回落密码 |
-| `ZHIPU_API_KEY` | 对话 / 向量 / 重排，缺失时检索自动降级 |
+| `ZHIPU_API_KEY` | 对话模型 `glm-4-flash` |
+| `SILICONFLOW_API_KEY` | 向量与精排（`bge-m3` / `bge-reranker-v2-m3`），缺失时检索自动降级为 BM25 |
+| `EMBEDDING_PROVIDER` | 向量/精排供应商，默认 `siliconflow`，可切回 `zhipu` |
 | `PG_DSN` | pgvector 连接串（容器端口 5433） |
 | `HISTORY_ROUNDS` | 携带的历史轮数，默认 3 |
 
@@ -158,7 +160,7 @@ python scripts/eval_retrieval.py            # 13 条用例，输出 Recall@1/3/5
 python scripts/eval_retrieval.py --list     # 打印知识库文档清单
 ```
 
-基线（BM25-only 降级状态）：Recall@1 69.2%、Recall@3 100%、MRR 0.846。配置 `ZHIPU_API_KEY` 恢复向量检索后指标更高。
+实测（硅基流动 `bge-m3` 向量 + `bge-reranker-v2-m3` 精排，全量 161 个子块）：Recall@1 69.2%、Recall@3 100%、Recall@5 100%、MRR 0.846。重排分数分布与智谱不同，阈值按供应商分开配置（`RAG_MIN_SCORE_SILICONFLOW`，默认 0.08）。
 
 ## 测试与验收
 

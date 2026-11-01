@@ -76,11 +76,23 @@ async def _post(path: str, payload: dict) -> dict:
         try:
             async with httpx.AsyncClient(timeout=settings.request_timeout) as client:
                 resp = await client.post(url, json=payload, headers=_headers())
-            if resp.status_code == 429 or "1113" in resp.text:
+            if resp.status_code == 429:
                 _disabled_until = time.time() + _DISABLE_SECONDS
-                raise ModelAPIError(f"{path} 额度不足：{resp.text[:120]}")
+                raise ModelAPIError(f"{path} 额度不足（HTTP 429）：{resp.text[:120]}")
             if resp.status_code != 200:
-                raise ModelAPIError(f"{path} 返回 HTTP {resp.status_code}：{resp.text[:200]}")
+                # 只按 JSON 里的错误码判断额度问题；不能全文搜 "1113"，
+                # 否则正常的向量小数（如 -0.0234561113…）会被误判成额度不足
+                code = ""
+                detail = resp.text[:200]
+                try:
+                    body = resp.json()
+                    code = str(body.get("code") or (body.get("error") or {}).get("code") or "")
+                except ValueError:
+                    pass
+                if code in ("1113", "insufficient_quota"):
+                    _disabled_until = time.time() + _DISABLE_SECONDS
+                    raise ModelAPIError(f"{path} 额度不足：{detail}")
+                raise ModelAPIError(f"{path} 返回 HTTP {resp.status_code}：{detail}")
             return resp.json()
         except (httpx.HTTPError, ModelAPIError) as exc:
             last_error = exc

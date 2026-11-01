@@ -79,19 +79,19 @@ export default function DashboardPage() {
               <div className="flex flex-wrap items-center gap-2.5">
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11.5px] font-medium text-white/85 backdrop-blur">
                   <span className="live-dot h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  {runningApps.length} 套知识库运行中
+                  自建 RAG · 可溯源 · 可审批 · 可回放
                 </span>
                 <span className="text-[11.5px] text-white/45">{today}</span>
               </div>
 
               <h1 className="mt-4 text-[28px] font-semibold leading-[1.15] tracking-tight-ios md:text-[41px]">
-                一个客服中台，
+                答案有出处，
                 <br className="hidden sm:block" />
-                <span className="text-gradient-aurora">跑通两套知识库场景</span>
+                <span className="text-gradient-aurora">动作有审批，过程可回放</span>
               </h1>
 
               <p className="mt-3.5 max-w-[460px] text-[13px] leading-relaxed text-white/60 md:text-[14px]">
-                电商导购用商品库与订单工具，企业场景用制度库与版本溯源；检索、工具调用、人工审批与 Token 监控全部共用一套底座。
+                自建 RAG 与 LangGraph Agent：每条结论都能翻到文档编号与章节，建工单等写操作先经人工确认，每轮对话落库可回放，不依赖第三方编排平台。
               </p>
 
               <div className="mt-6 flex flex-wrap items-center gap-2.5">
@@ -124,7 +124,7 @@ export default function DashboardPage() {
                         <path d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h6v6h-6v-6z" />
                       </svg>
                     </span>
-                    已接入知识库
+                    覆盖场景
                   </span>
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/10 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-emerald-300">
                     <span className="live-dot h-1 w-1 rounded-full bg-emerald-400" />
@@ -302,14 +302,14 @@ export default function DashboardPage() {
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-[17px] font-semibold tracking-tight-ios text-slate-900">
-                  业务知识库
+                  覆盖场景
                 </h2>
                 <span className="rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-medium text-slate-500 ring-1 ring-slate-200/70">
                   {APPS.length}
                 </span>
               </div>
               <p className="mt-0.5 text-[12.5px] text-slate-500">
-                同一个中台下接入 {runningApps.length} 套知识库，一个输入框混合召回
+                同一个输入框自动判断该查商品库还是制度库，答不出来会转人工
               </p>
             </div>
             <Link
