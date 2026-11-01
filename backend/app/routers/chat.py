@@ -266,7 +266,8 @@ def _filter_sources_by_answer(
 
     def _section(source: dict) -> str:
         match = re.search(r"章节\s+([^｜]+)", source.get("content") or "")
-        return match.group(1).strip() if match else ""
+        section = match.group(1).strip() if match else ""
+        return "" if section in ("-", "") else section
 
     if answer:
         cited = [s for s in sources if _stem(s) and _stem(s) in answer]
@@ -281,8 +282,12 @@ def _filter_sources_by_answer(
 
 
 def _sources_from_evidence(evidence: list[dict]) -> list[dict]:
-    """证据链 → 来源卡片：文件名 + 章节 + 页码，展开后显示文档编号与版本。"""
-    rows: list[dict] = []
+    """证据链 → 来源卡片：文件名 + 章节 + 页码，展开后显示文档编号与版本。
+
+    同一文档同一章节可能命中多个父块，卡片按标签归并，只保留分最高的一条，
+    否则会出现两个完全同名的来源、分数却相差很多。
+    """
+    best: dict[str, dict] = {}
     for item in evidence:
         name = str(item.get("doc_name") or item.get("document_name") or "").strip()
         if not name:
@@ -298,14 +303,15 @@ def _sources_from_evidence(evidence: list[dict]) -> list[dict]:
         )
         if page:
             detail = f"{detail}｜第 {page} 页"
-        rows.append(
-            {
-                "document_name": label,
-                "score": round(float(item.get("score") or 0), 4),
-                "content": detail,
-            }
-        )
-    return rows
+        row = {
+            "document_name": label,
+            "score": round(float(item.get("score") or 0), 4),
+            "content": detail,
+        }
+        previous = best.get(label)
+        if previous is None or row["score"] > previous["score"]:
+            best[label] = row
+    return list(best.values())
 
 
 _TOOL_LABELS = {

@@ -21,6 +21,13 @@ _BM25_TTL = 300
 _bm25_cache: dict[str, tuple[float, BM25Index, list[dict[str, Any]]]] = {}
 
 
+def _min_score() -> float:
+    """精排阈值按供应商区分：智谱 0.3，硅基流动 bge-reranker 分数压缩在 0~0.3。"""
+    if zhipu._provider() == "siliconflow":
+        return settings.rag_min_score_siliconflow
+    return settings.rag_min_score
+
+
 async def _bm25(kb_id: str) -> tuple[BM25Index, list[dict[str, Any]]]:
     now = time.time()
     cached = _bm25_cache.get(kb_id)
@@ -101,6 +108,7 @@ async def search_multi(
     hits = merged[:limit]
 
     # 精排只跑一次，覆盖两个库的候选，避免各库单独精排导致分数不可比
+    reranked = False
     if hits:
         try:
             t0 = time.perf_counter()
@@ -112,18 +120,29 @@ async def search_multi(
                     hit["score"] = scores[hit["chunk_id"]]
             hits.sort(key=lambda x: x["final_score"], reverse=True)
             timings["rerank_ms"] = int((time.perf_counter() - t0) * 1000)
+            reranked = True
         except zhipu.ZhipuError as exc:
             degraded.append(f"rerank 不可用：{exc}")
+
+    # 与单库检索保持一致：精排后按阈值剔除弱相关片段，
+    # 否则同名文档的低分兄弟块会作为「依据」出现在来源卡片里
+    if reranked:
+        hits = [h for h in hits if (h["final_score"] or 0) >= _min_score()]
 
     context_parts: list[str] = []
     evidence: list[dict[str, Any]] = []
     used = 0
     seen_parents: set[str] = set()
+    seen_sources: set[tuple[str, str]] = set()
     for hit in hits:
         parent_id = hit.get("parent_id") or hit["chunk_id"]
-        if parent_id in seen_parents:
+        # 同一父块的多个子块命中时只展开一次；同一文档同一章节的多个父块也只留一条，
+        # 避免来源卡片里出现两个完全同名的条目
+        source_key = (hit["doc_name"], (hit.get("section") or "").strip())
+        if parent_id in seen_parents or source_key in seen_sources:
             continue
         seen_parents.add(parent_id)
+        seen_sources.add(source_key)
         header = (
             f"【{hit['doc_name']}｜{hit.get('doc_no') or '-'}｜版本 {hit.get('version') or '-'}"
             f"｜章节 {hit.get('section') or '-'}"
@@ -213,12 +232,7 @@ async def search(
         )
 
     if rerank_scores:
-        min_score = (
-            settings.rag_min_score_siliconflow
-            if zhipu._provider() == "siliconflow"
-            else settings.rag_min_score
-        )
-        candidates = [c for c in candidates if (c["score"] or 0) >= min_score]
+        candidates = [c for c in candidates if (c["score"] or 0) >= _min_score()]
     candidates.sort(key=lambda x: x["final_score"], reverse=True)
     hits = candidates[: (top_k or settings.rag_rerank_top_k)]
 
@@ -232,12 +246,15 @@ async def search(
     evidence: list[dict[str, Any]] = []
     used = 0
     seen_parents: set[str] = set()
+    seen_sources: set[tuple[str, str]] = set()
     for hit in hits:
         parent_id = hit.get("parent_id") or hit["chunk_id"]
-        # 同一父块的多个子块命中时只展开一次，避免上下文与来源卡片重复
-        if parent_id in seen_parents:
+        # 同一父块的多个子块命中时只展开一次；同一文档同一章节的多个父块也只留一条
+        source_key = (hit["doc_name"], (hit.get("section") or "").strip())
+        if parent_id in seen_parents or source_key in seen_sources:
             continue
         seen_parents.add(parent_id)
+        seen_sources.add(source_key)
         parent = parents.get(hit.get("parent_id") or "") or {}
         header = (
             f"【{hit['doc_name']}｜{hit.get('doc_no') or '-'}｜版本 {hit.get('version') or '-'}"

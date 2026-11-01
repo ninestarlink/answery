@@ -494,12 +494,13 @@ function SourceList({ sources }: { sources: SourceRef[] }) {
       </div>
 
       <div className="space-y-1">
-        {sources.map((s) => {
-          const active = openName === s.document_name;
+        {sources.map((s, i) => {
+          const key = `${s.document_name}-${i}`;
+          const active = openName === key;
           return (
-            <div key={s.document_name} className="rounded-xl bg-white/70 hairline">
+            <div key={key} className="rounded-xl bg-white/70 hairline">
               <button
-                onClick={() => setOpenName(active ? null : s.document_name)}
+                onClick={() => setOpenName(active ? null : key)}
                 className="flex w-full items-center gap-2 px-2.5 py-2 text-left"
               >
                 <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
