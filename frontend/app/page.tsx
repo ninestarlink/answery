@@ -96,7 +96,7 @@ export default function DashboardPage() {
 
               <div className="mt-6 flex flex-wrap items-center gap-2.5">
                 <Link
-                  href="/apps?kb=ecommerce"
+                  href="/apps"
                   className="press inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-900 shadow-[0_16px_36px_-16px_rgba(255,255,255,0.7)] hover:bg-slate-100"
                 >
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -309,7 +309,7 @@ export default function DashboardPage() {
                 </span>
               </div>
               <p className="mt-0.5 text-[12.5px] text-slate-500">
-                同一个中台下接入 {runningApps.length} 套知识库，进入后可随时切换
+                同一个中台下接入 {runningApps.length} 套知识库，一个输入框混合召回
               </p>
             </div>
             <Link

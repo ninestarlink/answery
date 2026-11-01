@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 from typing import Any
 
@@ -60,6 +61,100 @@ def _rrf_merge(
         item["rrf"] += 1.0 / (k + rank)
     ranked = sorted(fused.values(), key=lambda x: x["rrf"], reverse=True)
     return ranked
+
+
+async def search_multi(
+    kb_ids: list[str],
+    query: str,
+    top_k: int | None = None,
+) -> dict[str, Any]:
+    """跨知识库混合检索：各库独立跑一遍，再按归一化分数合并。
+
+    用于「一个输入框问所有问题」的场景：企业制度和商品手册同时召回，
+    由模型按问题语义挑用；每个库内部仍然是向量 + BM25 + RRF + 精排。
+    """
+    started = time.perf_counter()
+    limit = top_k or settings.rag_rerank_top_k
+    empty = {"hits": [], "context": "", "evidence": [], "timings": {}, "degraded": []}
+    if not kb_ids or not (query or "").strip():
+        return empty
+
+    results = await asyncio.gather(
+        *(search(kb, query, top_k=limit, use_rerank=False) for kb in kb_ids)
+    )
+
+    merged: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    degraded: list[str] = []
+    timings: dict[str, int] = {}
+    for kb, result in zip(kb_ids, results):
+        degraded.extend(f"{kb}：{d}" for d in result["degraded"])
+        for key, value in result["timings"].items():
+            timings[key] = max(timings.get(key, 0), value)
+        for hit in result["hits"]:
+            if hit["chunk_id"] in seen:
+                continue
+            seen.add(hit["chunk_id"])
+            merged.append({**hit, "kb_id": kb})
+
+    merged.sort(key=lambda x: x["final_score"], reverse=True)
+    hits = merged[:limit]
+
+    # 精排只跑一次，覆盖两个库的候选，避免各库单独精排导致分数不可比
+    if hits:
+        try:
+            t0 = time.perf_counter()
+            ranked = await zhipu.rerank(query, [h["content"] for h in hits], limit)
+            scores = {hits[i]["chunk_id"]: score for i, score in ranked}
+            for hit in hits:
+                if hit["chunk_id"] in scores:
+                    hit["final_score"] = scores[hit["chunk_id"]]
+                    hit["score"] = scores[hit["chunk_id"]]
+            hits.sort(key=lambda x: x["final_score"], reverse=True)
+            timings["rerank_ms"] = int((time.perf_counter() - t0) * 1000)
+        except zhipu.ZhipuError as exc:
+            degraded.append(f"rerank 不可用：{exc}")
+
+    context_parts: list[str] = []
+    evidence: list[dict[str, Any]] = []
+    used = 0
+    seen_parents: set[str] = set()
+    for hit in hits:
+        parent_id = hit.get("parent_id") or hit["chunk_id"]
+        if parent_id in seen_parents:
+            continue
+        seen_parents.add(parent_id)
+        header = (
+            f"【{hit['doc_name']}｜{hit.get('doc_no') or '-'}｜版本 {hit.get('version') or '-'}"
+            f"｜章节 {hit.get('section') or '-'}"
+            + (f"｜第 {hit['page']} 页" if hit.get("page") else "")
+            + "】"
+        )
+        block = f"{header}\n{hit.get('parent_content') or hit['content']}"
+        if used + len(block) > settings.rag_max_chars and context_parts:
+            break
+        context_parts.append(block)
+        used += len(block)
+        evidence.append(
+            {
+                "document_name": hit["doc_name"],
+                "doc_no": hit.get("doc_no") or "",
+                "version": hit.get("version") or "",
+                "section": hit.get("section") or "",
+                "page": hit.get("page"),
+                "score": round(float(hit["final_score"]), 4),
+                "content": (hit.get("parent_content") or hit["content"])[:160].replace("\n", " "),
+            }
+        )
+
+    timings["total_ms"] = int((time.perf_counter() - started) * 1000)
+    return {
+        "hits": hits,
+        "context": "\n\n".join(context_parts),
+        "evidence": evidence,
+        "timings": timings,
+        "degraded": degraded,
+    }
 
 
 async def search(

@@ -39,7 +39,7 @@ CHAT_SESSION_LIMIT = 30
 CHAT_SESSION_WINDOW = 600
 CHAT_DAILY_LIMIT = 1000
 
-VALID_APPS = ("ecommerce", "enterprise")
+VALID_APPS = ("ecommerce", "enterprise", "auto")
 
 
 def _sse(payload: dict) -> str:
@@ -248,11 +248,14 @@ def _filter_sources_by_doc_ref(question: str, sources: list[dict]) -> list[dict]
     return matched or sources
 
 
-def _filter_sources_by_answer(answer: str, sources: list[dict], *, degraded: bool) -> list[dict]:
+def _filter_sources_by_answer(
+    answer: str, sources: list[dict], *, degraded: bool, tool_used: bool = False
+) -> list[dict]:
     """来源卡片只展示答案真正引用到的文档，避免把弱相关命中列成「依据」。
 
     模型按提示词会写「依据：文档名｜编号｜版本」，这里按文档名反查；
     一条都没匹配上时（模型没写依据）退化为按分数取前几条，降级检索时只取前 3 条。
+    若本轮是工具作答（查订单/查库存等），答案依据是工具返回而非文档，则不再挂来源。
     """
     if not sources:
         return []
@@ -261,10 +264,19 @@ def _filter_sources_by_answer(answer: str, sources: list[dict], *, degraded: boo
         base = source["document_name"].split(" · ")[0].strip()
         return re.sub(r"\.(pdf|docx|xlsx|xls|md|txt)$", "", base, flags=re.I)
 
+    def _section(source: dict) -> str:
+        match = re.search(r"章节\s+([^｜]+)", source.get("content") or "")
+        return match.group(1).strip() if match else ""
+
     if answer:
         cited = [s for s in sources if _stem(s) and _stem(s) in answer]
         if cited:
-            return cited
+            # 同一文档常有多处命中，答案写到具体章节时只保留该章节
+            by_section = [s for s in cited if _section(s) and _section(s) in answer]
+            return by_section or cited
+    # 工具作答且答案没有引用文档：来源就是工具结果，不挂无关文档
+    if tool_used:
+        return []
     return sources[:3] if degraded else sources[:5]
 
 
@@ -308,6 +320,7 @@ _TOOL_LABELS = {
 _INITIAL_STATUS = {
     "ecommerce": "正在检索商品知识库",
     "enterprise": "正在检索企业知识库",
+    "auto": "正在理解问题并检索知识库",
 }
 
 
@@ -547,7 +560,9 @@ def _final_frames(question: str, acc: dict, started: float) -> list[str]:
     latency_ms = int((time.perf_counter() - started) * 1000)
     degraded = bool((acc.get("retrieval") or {}).get("degraded"))
     sources = _filter_sources_by_doc_ref(question, _sources_from_evidence(acc["evidence"]))
-    sources = _filter_sources_by_answer(answer, sources, degraded=degraded)
+    sources = _filter_sources_by_answer(
+        answer, sources, degraded=degraded, tool_used=bool(acc["tool_calls"])
+    )
     return [
         _sse(
             {
@@ -597,7 +612,7 @@ async def _event_stream(
     messages.append(HumanMessage(content=question))
 
     hints = ""
-    if app == "ecommerce":
+    if app in ("ecommerce", "auto"):
         hints = await _recognize_business_entities(question)
 
     yield _sse({"event": "status", "label": _INITIAL_STATUS.get(app, "正在思考中")})
@@ -608,7 +623,7 @@ async def _event_stream(
     state = {
         "messages": messages,
         "app": app,
-        "kb_id": "shop" if app == "ecommerce" else "enterprise",
+        "kb_id": {"ecommerce": "shop", "enterprise": "enterprise"}.get(app, "auto"),
         "question": question,
         "today": date.today().isoformat(),
         "customer_name": customer_name,

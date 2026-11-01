@@ -65,7 +65,7 @@ export interface ChatProps {
   /** 移动端打开侧边栏抽屉；单窗口页面不传，顶栏就不显示菜单按钮 */
   onOpenSidebar?: () => void;
   /** 应用标识：电商客服 / 企业知识库 */
-  app?: 'ecommerce' | 'enterprise';
+  app?: 'ecommerce' | 'enterprise' | 'auto';
   title?: string;
   subtitle?: string;
   placeholder?: string;

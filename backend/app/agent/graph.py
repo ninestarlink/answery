@@ -77,12 +77,20 @@ def _llm_client() -> ChatOpenAI:
 
 
 async def _retrieve(state: AgentState) -> dict[str, Any]:
+    app = state.get("app") or "ecommerce"
     kb_id = state.get("kb_id") or ""
-    if not kb_id or not settings.zhipu_api_key:
+    if not settings.zhipu_api_key:
         return {"context": "", "evidence": [], "retrieval": {"degraded": ["检索未启用"]}}
 
+    question = state.get("question") or ""
     try:
-        result = await retriever.search(kb_id, state.get("question") or "")
+        if app == "auto":
+            # 统一入口：两个知识库同时召回，由提示词按问题语义挑用
+            result = await retriever.search_multi(["shop", "enterprise"], question)
+        elif kb_id:
+            result = await retriever.search(kb_id, question)
+        else:
+            return {"context": "", "evidence": [], "retrieval": {"degraded": ["检索未启用"]}}
     except Exception as exc:  # 检索失败不阻断对话，让模型明确「没有资料」
         logger.warning("知识库检索失败：%s", exc)
         return {
@@ -117,7 +125,8 @@ def _system_message(state: AgentState) -> SystemMessage:
 
 async def _agent(state: AgentState) -> dict[str, Any]:
     rounds = int(state.get("tool_rounds") or 0)
-    can_use_tools = state.get("app") == "ecommerce" and rounds < MAX_TOOL_ROUNDS
+    # 统一入口也允许调工具：是否调用由提示词按问题类型判断
+    can_use_tools = state.get("app") in ("ecommerce", "auto") and rounds < MAX_TOOL_ROUNDS
     llm = _llm_client()
     if can_use_tools:
         llm = llm.bind_tools(SHOP_TOOLS)
