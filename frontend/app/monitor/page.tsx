@@ -226,10 +226,9 @@ export default function MonitorPage() {
         </section>
 
         {/* 业务指标 */}
-        <section className="mt-3.5 grid grid-cols-2 gap-2.5 md:grid-cols-4">
+        <section className="mt-3.5 grid grid-cols-3 gap-2.5 md:grid-cols-3">
           <Metric label="今日消息" value={stats?.messages_today} unit="条" />
           <Metric label="今日 Token" value={stats?.tokens_today} unit="tk" />
-          <Metric label="平均延迟" value={stats?.avg_latency_ms} unit="ms" />
           <Metric
             label="运行时长"
             value={stats ? Math.floor((stats.uptime_seconds ?? 0) / 60) : undefined}
@@ -308,10 +307,10 @@ export default function MonitorPage() {
             <span className="text-[11.5px] text-slate-500">GET /api/admin/services · 3s</span>
           </div>
           <ul className="mt-2.5 space-y-1.5 text-[12px] leading-relaxed text-slate-600">
-            <li>· MySQL / Redis / PostgreSQL(pgvector) / 智谱 GLM 每 3 秒实际探活一次，延迟为本次往返耗时；业务指标每 30 秒刷新。</li>
-            <li>· 智谱探活走 GET /models，只校验密钥与连通性，不消耗模型 Token。</li>
+            <li>· MySQL / Redis / PostgreSQL(pgvector) / 对话模型每 3 秒实际探活一次，延迟为本次往返耗时；业务指标每 30 秒刷新。</li>
+            <li>· 对话模型探活走 GET /models，只校验密钥与连通性，不消耗模型 Token。</li>
             <li>· 页面切到后台时暂停轮询，避免无意义请求。</li>
-            <li>· 对话链路的真实延迟逐条记录在 chat_history.latency_ms，可在「平均延迟」查看。</li>
+            <li>· 对话链路的真实延迟逐条记录在 chat_history.latency_ms，可在下方「最近执行轨迹」查看总耗时。</li>
           </ul>
         </section>
       </div>
