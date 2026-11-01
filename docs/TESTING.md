@@ -106,7 +106,44 @@ next build              通过，9 条路由：
 | 登录与权限 | 管理员可见监控/知识库管理，客户仅对话 | 通过 |
 | 监控页 | 显示最近轨迹（状态、命中数、首 Token 延迟） | 通过 |
 
-## 五、已知限制
+## 五、代码沙箱验收
+
+脚本：[backend/scripts/sandbox_test.py](../backend/scripts/sandbox_test.py)，直接打 `/api/sandbox/run` 与 `/api/sandbox/status`，13 项全部通过。
+
+```text
+PASS  Docker 可用  29.9.2
+PASS  运行时镜像就绪  {'python': True, 'node': True}
+PASS  预热池为 WARM  {'python': 'WARM', 'node': 'WARM'}
+PASS  Python 执行  42
+PASS  Node 执行  node ok 3
+PASS  只读文件系统  PermissionError: [Errno 13] Permission denied: '/etc/passwd'
+PASS  容器禁网  NETWORK_BLOCKED URLError
+PASS  缓存写入  HTTP 200
+PASS  缓存命中  CACHED
+PASS  超时中止  HTTP 408 {"detail":"执行超时（>8s），容器已销毁重建"}
+PASS  超时后自动重建  state=WARM runs=5
+PASS  超时后可继续执行  after-timeout
+PASS  未支持语言被拒  HTTP 400
+
+RESULT: PASS（13 项全部通过）
+```
+
+容器实际配置（`docker inspect` 摘录，非文档描述）：
+
+```text
+ReadonlyRootfs : True
+Memory         : 536870912      # 512 MB
+NanoCpus       : 1000000000     # 1 CPU
+PidsLimit      : 64
+NetworkMode    : none
+CapDrop        : {ALL}
+SecurityOpt    : {no-new-privileges:true}
+Tmpfs          : /tmp=size=64m,mode=1777
+```
+
+说明：seccomp 未自定义白名单，走 Docker 默认 profile（已屏蔽高危 syscall）；语言支持 Python / Node 两个运行时，Go 需要编译链、镜像体积大，暂未接入。
+
+## 六、已知限制
 
 - 精排分数阈值按供应商配置：智谱 rerank 分数在 0.3 以上，`bge-reranker-v2-m3` 压缩在 0~0.3，因此 `RAG_MIN_SCORE_SILICONFLOW` 默认 0.08；换供应商时需重新校准，否则会把候选全部过滤掉。
 - 对话模型 `glm-4-flash` 在档位类问题上容易补写片段没有的释义；已把 temperature 降到 0.1、在提示词里禁止补写释义，并把常用定义补进制度原文（如绩效五档定义），实测回答已与原文一致。接更强模型可进一步降低风险。
@@ -114,15 +151,18 @@ next build              通过，9 条路由：
 - `InMemorySaver` 检查点仅存于单进程；多实例部署需换 Redis/Postgres checkpointer。
 - 额度统计用 Redis 计数器，Redis 不可用时放行（优先保证可用性）。
 - 工单幂等窗口为 10 分钟，超出窗口会新建工单。
+- 沙箱每个语言只保留一个预热容器，执行按语言串行；并发量大时应改成容器池 + 队列。
+- 沙箱依赖本机 Docker，部署到无 Docker 的环境时请设置 `SANDBOX_ENABLED=false`。
 
-## 六、复现步骤
+## 七、复现步骤
 
 ```bash
 docker compose -f backend/docker-compose.yml up -d
 cd backend && pip install -r requirements.txt && python -m uvicorn app.main:app --port 8000
 # 另开终端
 cd frontend && npm ci && npm run build && npm start
-# 冒烟 + 评测
+# 冒烟 + 评测 + 沙箱
 cd backend && python scripts/smoke_test.py
 PYTHONPATH=. python scripts/eval_retrieval.py
+PYTHONPATH=. python scripts/sandbox_test.py   # 需要本机 Docker 与两个运行时镜像
 ```

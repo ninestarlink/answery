@@ -24,3 +24,5 @@ openpyxl>=3.1
 langgraph>=0.2.40
 langchain-openai>=0.2.10
 langchain-core>=0.3.20
+# 代码执行沙箱：Docker SDK 控制预热容器池
+docker>=7.1

@@ -30,6 +30,8 @@ jobs:
         run: |
           python -c "from app.rag import bm25, chunker, parser"
           python -c "from app.agent import graph"
+          python -c "from app import sandbox"
+          python -c "from app.routers import sandbox"
 
   frontend:
     name: 前端 / 类型检查与构建

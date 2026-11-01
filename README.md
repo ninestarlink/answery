@@ -39,7 +39,32 @@ AnswerY 针对这三点做了完整闭环：**引用到章节与页码 → 工�
 - 批准 → 继续执行工具；拒绝 → 注入一条 `ToolMessage`，模型改走自助方案
 - 审批状态由 checkpointer 持有，通过 `POST /api/chat/resume` 恢复，SSE 流不中断体验
 
-### 四、可观测与安全
+### 四、代码执行沙箱（可选，需要本机 Docker）
+
+AI 会写代码是一回事，敢让它在本机跑是另一回事。这里给了一个最小但真实的隔离执行环境：每种语言常驻一个预热容器，代码通过 `exec` 注入，跑完容器保留复用；超时或异常直接销毁重建。
+
+| 加固项 | 实际参数 |
+| --- | --- |
+| 根文件系统 | `read_only`，代码改不了镜像 |
+| 临时目录 | `/tmp` 内存盘，64 MB，`mode=1777` |
+| 内存 / CPU | `mem_limit=512m`、`nano_cpus=1.0` |
+| 网络 | `network_mode=none`，容器内没有任何出口 |
+| 权限 | `cap_drop=ALL` + `no-new-privileges:true` |
+| 进程 / 用户 | `pids_limit=64`、`65534:65534` 非 root |
+| 超时 | 8 秒，超时立即 kill 并重建一个干净容器 |
+| 结果缓存 | 相同代码命中 Redis 缓存，10 分钟内不再进容器 |
+
+状态机：`CREATE → WARM → CLAIMED →（命中缓存 CACHED）→ DESTROY → CREATE`。
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/sandbox/run \
+  -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+  -d '{"language":"python","code":"print(sum(range(10)))"}'
+```
+
+`GET /api/sandbox/status` 返回 Docker 版本、镜像是否就绪、各项限制与当前池状态。首次启动会自动拉起 `python:3.11-alpine`、`node:20-alpine` 并预热；Docker 不可用时接口返回 503，不影响客服主流程。
+
+### 五、可观测与安全
 
 - **对话轨迹**：每轮写入 `chat_trace`（命中数、工具、降级原因、首 Token 延迟、总耗时、Token 用量）
 - **鉴权闭环**：JWT（含 `role` claim）+ bcrypt 密码 + RBAC，管理端与索引重建接口均需 admin
@@ -78,9 +103,10 @@ AnswerY 针对这三点做了完整闭环：**引用到章节与页码 → 工�
 │   │   ├── routers/        # chat / rag / admin / auth / tickets / tools
 │   │   ├── config.py       # 环境变量
 │   │   ├── models.py       # ORM
+│   │   ├── sandbox.py      # Docker 预热池与隔离执行
 │   │   └── main.py         # 应用入口与健康检查
 │   ├── db/                 # 建表与种子数据（首次启动自动执行）
-│   ├── scripts/eval_retrieval.py   # 检索评测脚本
+│   ├── scripts/            # 冒烟测试、检索评测、沙箱验收
 │   └── docker-compose.yml  # MySQL / Redis / pgvector
 ├── frontend/               # Next.js 14 App Router
 │   ├── app/                # 页面：工作台、知识库、监控、登录
@@ -147,6 +173,8 @@ Windows 用户也可以直接双击 `start-demo.bat`（需 Node 已在 PATH 中�
 | POST | `/api/rag/ingest` | 重建知识库索引（admin） |
 | GET | `/api/rag/kbs/{kb_id}/documents` | 知识库文档清单 |
 | GET | `/api/admin/traces` | 最近对话轨迹（admin） |
+| POST | `/api/sandbox/run` | 在隔离容器里执行一段 Python/Node 代码（登录可见） |
+| GET | `/api/sandbox/status` | 沙箱镜像、限制与预热池状态 |
 | GET | `/api/admin/overview` `/monitor` `/services` | 概览、监控、依赖健康（admin） |
 | POST | `/api/auth/login` | 登录，返回 JWT |
 
@@ -166,6 +194,7 @@ python scripts/eval_retrieval.py --list     # 打印知识库文档清单
 
 - 端到端冒烟脚本：`backend/scripts/smoke_test.py`（鉴权、问答、审批中断与恢复、轨迹落库）
 - 检索评测脚本：`backend/scripts/eval_retrieval.py`（Recall@k / MRR）
+- 沙箱验收脚本：`backend/scripts/sandbox_test.py`（13 项：执行、只读、禁网、超时、缓存）
 - 实际运行记录与环境信息：[docs/TESTING.md](docs/TESTING.md)
 - CI：GitHub Actions 跑后端编译与导入检查、前端类型检查与生产构建、敏感文件扫描
 

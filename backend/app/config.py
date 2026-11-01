@@ -80,6 +80,17 @@ class Settings(BaseSettings):
     # 模型流式响应超时（秒）
     request_timeout: float = 120.0
 
+    # ---------- 代码执行沙箱（Docker，可选能力） ----------
+    sandbox_enabled: bool = True
+    sandbox_timeout: int = 8
+    sandbox_memory: str = "512m"
+    sandbox_cpus: float = 1.0
+    sandbox_code_limit: int = 4000
+    # 同一段代码的命中结果在 Redis 里缓存多久（秒）
+    sandbox_cache_ttl: int = 600
+    # 单个账号 10 分钟内最多执行次数
+    sandbox_quota: int = 20
+
     # ---------- 网页抓取 ----------
     # 已移除网页抓取 / 比价 / 多模态等小工具，项目聚焦电商客服与企业知识库
 

@@ -14,7 +14,8 @@ from sqlalchemy import text
 from .config import settings
 from .database import SessionLocal, engine, get_redis
 from .rag import store as rag_store
-from .routers import admin, auth, chat, rag, tickets, tools
+from .routers import admin, auth, chat, rag, sandbox, tickets, tools
+from . import sandbox as sandbox_service
 
 logging.basicConfig(
     level=logging.INFO,
@@ -54,8 +55,11 @@ async def lifespan(app: FastAPI):
     if settings.embedding_provider == "siliconflow" and not settings.siliconflow_api_key:
         logger.warning("SILICONFLOW_API_KEY 未配置：向量检索会降级为 BM25（对话不受影响）")
 
+    await sandbox_service.warm_up()
+
     yield
 
+    await sandbox_service.shutdown()
     await rag_store.close_pool()
     await engine.dispose()
 
@@ -76,6 +80,7 @@ app.include_router(tools.router)
 app.include_router(tickets.router)
 app.include_router(rag.router)
 app.include_router(admin.router)
+app.include_router(sandbox.router)
 
 
 @app.get("/health", tags=["system"])
