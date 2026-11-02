@@ -1,4 +1,4 @@
-'use client';
+﻿﻿'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -102,58 +102,68 @@ export default function AppShell({
     href === '/' ? pathname === '/' : pathname.startsWith(href);
 
   return (
-    <div className="relative flex h-[100dvh] w-full overflow-hidden bg-paper">
-      {/* 全站底材：纸面 + 极淡点阵 */}
+    <div className="relative flex h-[100dvh] w-full overflow-hidden bg-canvas">
+      {/* 全站氛围背景：极光光斑 + 顶部点阵 */}
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 bg-paper" />
-        <div className="dot-grid absolute inset-0 opacity-40" />
+        <div className="ambient-canvas absolute inset-0" />
+        <div className="dot-grid absolute inset-0 opacity-70" />
+        <div className="aurora-blob aura-indigo -left-56 -top-64 h-[620px] w-[620px] animate-float-slow" />
+        <div className="aurora-blob aura-cyan -right-44 top-1/3 h-[540px] w-[540px] animate-float-slow [animation-delay:-7s]" />
+        <div className="aurora-blob aura-pink bottom-[-280px] left-1/3 h-[520px] w-[520px] animate-float-slow [animation-delay:-12s]" />
       </div>
 
       {/* 桌面端侧边导航 */}
-      <aside className="relative z-20 hidden w-[248px] shrink-0 flex-col border-r border-rule bg-paper-2 md:flex">
-        <Link href="/" className="relative flex items-center gap-3 px-5 pb-5 pt-6">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[7px] bg-graphite font-display text-[16px] font-semibold text-graphite-ink">
+      <aside className="relative z-20 hidden w-[248px] shrink-0 flex-col border-r border-rule border-t-[3px] border-t-ink-900 bg-paper-2 backdrop-blur-2xl md:flex">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-gradient-to-b from-paper-2/75 to-transparent"
+        />
+        <Link
+          href="/"
+          className="relative flex items-center gap-3 border-b border-rule px-5 pb-4 pt-6"
+        >
+          <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-[2px] bg-accent font-display text-[20px] font-semibold text-accent-ink shadow-[3px_3px_0_rgba(23,21,18,0.18)]">
             Y
           </div>
           <div className="min-w-0">
-            <div className="whitespace-nowrap font-display text-[13.5px] font-semibold text-ink">
-              AnswerY智能客服中台
+            <div className="whitespace-nowrap font-display text-[16px] font-semibold tracking-[0.01em] text-ink">
+              AnswerY
             </div>
-            <div className="mt-0.5 text-[11px] text-ink-muted">Knowledge Desk · 自建 RAG Agent</div>
+            <div className="mono-label mt-1 text-[9px] text-muted">
+              Knowledge Desk · RAG Agent
+            </div>
           </div>
         </Link>
 
-        <div className="relative px-5 pb-2 text-[10.5px] font-medium text-ink-muted">工作区</div>
+        <div className="relative flex items-center justify-between px-5 pb-2 pt-4">
+          <span className="mono-label text-[9.5px] text-muted">Workspace</span>
+          <span className="mono-label text-[9.5px] text-muted">00—04</span>
+        </div>
 
-        <nav className="relative flex-1 space-y-1 px-3 pt-1">
+        <nav className="relative flex-1 space-y-1.5 px-3 pt-1">
           {NAV_ITEMS.map((item) => {
             const active = isActive(item.href);
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`group relative flex items-center gap-2.5 rounded-[6px] border px-2.5 py-2 text-[13px] font-medium transition ${
+                className={`press group relative flex items-center gap-2.5 rounded-[2px] px-2.5 py-2 text-[13px] font-medium transition ${
                   active
-                    ? 'border-rule-2 bg-paper text-ink'
-                    : 'border-transparent text-ink-2 hover:bg-paper hover:text-ink'
+                    ? 'bg-ink text-paper-2'
+                    : 'text-muted hover:bg-paper-3/60 hover:text-ink'
                 }`}
               >
-                {active && (
-                  <span
-                    aria-hidden
-                    className="absolute inset-y-1.5 left-0 w-[2px] rounded-r-[2px] bg-accent"
-                  />
-                )}
                 <span
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[5px] border transition ${
-                    active
-                      ? 'border-transparent text-accent'
-                      : 'border-rule bg-paper text-ink-muted group-hover:text-ink-2'
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[2px] transition ${
+                    active ? 'text-accent-soft' : 'text-muted group-hover:text-ink'
                   }`}
                 >
                   <NavIcon>{item.icon}</NavIcon>
                 </span>
                 {item.label}
+                {active && (
+                  <span className="ml-auto h-1.5 w-1.5 shrink-0 rounded-[2px] bg-accent" />
+                )}
               </Link>
             );
           })}
@@ -162,23 +172,31 @@ export default function AppShell({
         <AccountBox />
 
         <div className="relative px-4 pb-5">
-          <div className="cut p-3.5">
+          <div className="rounded-2xl border border-rule bg-paper-2 p-3.5 backdrop-blur-xl">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-ink-muted">平台状态</span>
-              <span className="inline-flex items-center gap-1.5 text-[10.5px] font-medium text-ink-2">
+              <span className="text-[11px] font-medium text-slate-500">平台状态</span>
+              <span
+                className={`inline-flex items-center gap-1 rounded-[2px] px-1.5 py-0.5 text-[10.5px] font-medium ${
+                  online === null
+                    ? 'bg-slate-100 text-slate-500'
+                    : online
+                      ? 'bg-emerald-50 text-emerald-600'
+                      : 'bg-rose-50 text-rose-500'
+                }`}
+              >
                 <span
                   className={`h-1.5 w-1.5 rounded-full ${
                     online === null
-                      ? 'bg-ink-muted'
+                      ? 'bg-slate-300'
                       : online
-                        ? 'live-dot bg-emerald-600'
-                        : 'bg-rose-500'
+                        ? 'live-dot bg-emerald-500'
+                        : 'bg-rose-400'
                   }`}
                 />
                 {online === null ? '检测中' : online ? '正常' : '离线'}
               </span>
             </div>
-            <div className="mt-2 font-mono text-[10.5px] leading-4 text-ink-muted">
+            <div className="mt-2 text-[11px] leading-4 text-slate-500">
               React · FastAPI · LangGraph
               <br />
               演示数据均为虚构
@@ -200,20 +218,22 @@ export default function AppShell({
         </main>
 
         {/* 移动端底部 Tab */}
-        <nav className="fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t border-rule bg-paper px-2 pb-safe pt-1.5 md:hidden">
+        <nav className="fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t border-rule bg-paper-2 px-2 pb-safe pt-1.5 backdrop-blur-2xl md:hidden">
           {NAV_ITEMS.map((item) => {
             const active = isActive(item.href);
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex flex-1 flex-col items-center gap-1 py-1 text-[10.5px] font-medium transition ${
-                  active ? 'text-accent-deep' : 'text-ink-muted'
+                className={`flex flex-1 flex-col items-center gap-1 rounded-xl py-1 text-[10.5px] font-medium transition ${
+                  active ? 'text-brand-600' : 'text-slate-500'
                 }`}
               >
                 <span
-                  className={`flex h-7 w-8 items-center justify-center rounded-[5px] border ${
-                    active ? 'border-transparent text-accent' : 'border-rule text-ink-muted'
+                  className={`flex h-8 w-9 items-center justify-center rounded-xl transition ${
+                    active
+                      ? 'bg-accent text-accent-ink'
+                      : 'text-muted'
                   }`}
                 >
                   <NavIcon>{item.icon}</NavIcon>
@@ -248,10 +268,10 @@ function AccountBox() {
       <div className="relative px-4 pb-2">
         <Link
           href="/login"
-          className="flex items-center justify-between rounded-[6px] border border-rule-2 bg-paper px-3 py-2.5 text-[12px] font-medium text-ink-2 transition hover:bg-paper-3 hover:text-ink"
+          className="press flex items-center justify-between rounded-2xl border border-rule bg-paper-2 px-3 py-2.5 text-[12px] font-medium text-muted transition hover:border-rule-2 hover:text-ink"
         >
           管理员登录
-          <span className="text-[11px] text-ink-muted">→</span>
+          <span className="text-[11px] text-slate-400">→</span>
         </Link>
       </div>
     );
@@ -260,14 +280,14 @@ function AccountBox() {
   const isAdmin = user.role === 'admin';
   return (
     <div className="relative px-4 pb-2">
-      <div className="cut px-3 py-2.5">
+      <div className="rounded-2xl border border-rule bg-paper-2 px-3 py-2.5 backdrop-blur-xl">
         <div className="flex items-center gap-2">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[5px] bg-graphite text-[11px] font-semibold text-graphite-ink">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[2px] bg-accent text-[11px] font-semibold text-accent-ink">
             {user.name.slice(0, 1)}
           </span>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[12px] font-medium text-ink">{user.name}</div>
-            <div className="truncate text-[10.5px] text-ink-muted">
+            <div className="truncate text-[12px] font-medium text-slate-700">{user.name}</div>
+            <div className="truncate text-[10.5px] text-slate-400">
               {isAdmin ? '管理员' : '普通用户'} · {user.phone}
             </div>
           </div>
@@ -276,7 +296,7 @@ function AccountBox() {
               logout();
               window.location.href = '/login';
             }}
-            className="shrink-0 text-[11px] font-medium text-ink-muted transition hover:text-rose-500"
+            className="press shrink-0 text-[11px] font-medium text-slate-400 transition hover:text-rose-500"
           >
             退出
           </button>

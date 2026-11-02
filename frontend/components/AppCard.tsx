@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import { APPS } from '@/lib/apps';
@@ -15,36 +15,29 @@ export default function AppCard({
   const running = app.status === 'running';
   return (
     <div
-      className={`sheen group relative overflow-hidden rounded-[26px] border border-white/70 bg-white/75 shadow-bubble backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:bg-white/90 hover:shadow-lift ${
+      className={`group relative overflow-hidden rounded-[2px] border border-rule bg-paper-2 shadow-bubble transition-all duration-300 hover:-translate-y-0.5 hover:bg-paper-2 hover:shadow-lift ${
         compact ? 'p-4' : 'p-5'
       }`}
     >
-      {/* 顶部渐变细线 */}
+      {/* 顶部栏线 */}
       <span
         aria-hidden
-        className={`absolute inset-x-5 top-0 h-px bg-gradient-to-r ${app.gradient} opacity-50`}
-      />
-      {/* 悬停时的品牌光晕 */}
-      <div
-        aria-hidden
-        className={`pointer-events-none absolute -right-12 -top-14 h-36 w-36 rounded-full bg-gradient-to-br ${app.gradient} opacity-0 blur-2xl transition-opacity duration-500 group-hover:opacity-30`}
+        className="absolute inset-x-0 top-0 h-[3px] bg-accent/75"
       />
 
-      <div className="relative flex items-start gap-3">
+      <div className="relative flex items-start gap-3 pt-1">
         <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${app.gradient} ${
-            app.iconClass ?? 'text-white'
-          } shadow-[0_10px_22px_-10px_rgba(99,102,241,0.7)] transition-transform duration-300 group-hover:-rotate-3 group-hover:scale-105`}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[2px] bg-accent text-accent-ink shadow-[3px_3px_0_rgba(23,21,18,0.16)] transition-transform duration-300 group-hover:-rotate-3"
         >
           {app.icon}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <span className="truncate text-[13.5px] font-semibold text-slate-900">
+            <span className="truncate font-display text-[15px] font-semibold text-ink">
               {app.name}
             </span>
             <span
-              className={`inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-medium ${
+              className={`inline-flex shrink-0 items-center gap-1 rounded-[2px] px-1.5 py-0.5 text-[10px] font-medium ${
                 running ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-600'
               }`}
             >
@@ -52,7 +45,7 @@ export default function AppCard({
               {running ? '运行中' : '规划中'}
             </span>
           </div>
-          <div className="mt-0.5 text-[12px] text-slate-500">{app.en}</div>
+          <div className="mono-label mt-1 text-[9px] text-muted">{app.en}</div>
         </div>
       </div>
 
@@ -64,7 +57,7 @@ export default function AppCard({
         {app.tags.map((t) => (
           <span
             key={t}
-            className="rounded-md bg-slate-100/80 px-1.5 py-0.5 text-[11.5px] text-slate-600 transition group-hover:bg-white/80"
+            className="rounded-[2px] bg-slate-100/80 px-1.5 py-0.5 text-[11px] text-slate-600 transition group-hover:bg-paper-3"
           >
             {t}
           </span>
@@ -75,17 +68,17 @@ export default function AppCard({
         {running ? (
           <Link
             href={app.href ?? '/apps'}
-            className="press inline-flex items-center gap-1.5 rounded-full bg-slate-900 py-1.5 pl-3.5 pr-2 text-[12px] font-medium text-white shadow-[0_10px_22px_-12px_rgba(15,23,42,0.95)] hover:bg-slate-800"
+            className="press inline-flex items-center gap-1.5 rounded-[2px] bg-accent py-1.5 pl-3.5 pr-2 text-[12px] font-semibold text-accent-ink shadow-[2px_2px_0_rgba(23,21,18,0.16)] hover:bg-accent-hi"
           >
             进入工作台
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/15 transition-transform duration-300 group-hover:translate-x-0.5">
+            <span className="flex h-5 w-5 items-center justify-center rounded-[2px] bg-paper-2 text-ink transition-transform duration-300 group-hover:translate-x-0.5">
               <svg viewBox="0 0 20 20" fill="currentColor" className="h-3 w-3">
                 <path d="M7.22 4.22a.75.75 0 011.06 0l5.25 5.25a.75.75 0 010 1.06l-5.25 5.25a.75.75 0 11-1.06-1.06L11.94 10 7.22 5.28a.75.75 0 010-1.06z" />
               </svg>
             </span>
           </Link>
         ) : (
-          <span className="inline-flex items-center gap-1 rounded-full bg-white/70 px-3 py-1.5 text-[12px] font-medium text-slate-500 hairline">
+          <span className="inline-flex items-center gap-1 rounded-[2px] bg-paper-2 px-3 py-1.5 text-[12px] font-medium text-slate-500 hairline">
             敬请期待
           </span>
         )}

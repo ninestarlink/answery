@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
@@ -86,7 +86,7 @@ export default function MessageBubble({
   if (isUser) {
     return (
       <div className="flex justify-end animate-fade-up">
-        <div className="max-w-[85%] rounded-[22px] rounded-br-[8px] bg-gradient-to-br from-brand-600 via-indigo-500 to-violet-500 px-4 py-2.5 text-[15px] leading-relaxed text-white shadow-[0_12px_30px_-14px_rgba(79,70,229,0.95)] ring-1 ring-white/15 sm:max-w-[75%]">
+        <div className="max-w-[85%] rounded-[2px] bg-ink px-4 py-2.5 text-[15px] leading-relaxed text-white shadow-[3px_3px_0_rgba(23,21,18,0.12)] sm:max-w-[75%]">
           <span className="whitespace-pre-wrap break-words">{message.content}</span>
         </div>
       </div>
@@ -96,17 +96,16 @@ export default function MessageBubble({
   return (
     <div className="flex items-start gap-2.5 animate-fade-up">
       {/* 助手头像 */}
-      <div className="relative mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 via-indigo-500 to-violet-500 text-white shadow-[0_8px_18px_-8px_rgba(99,102,241,0.9)] ring-1 ring-white/60">
+      <div className="relative mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[2px] bg-accent text-accent-ink shadow-[2px_2px_0_rgba(23,21,18,0.16)]">
         <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
           <path d="M12 2l1.9 5.6L19.5 9.5 13.9 11.4 12 17l-1.9-5.6L4.5 9.5l5.6-1.9L12 2z" />
         </svg>
-        <span className="absolute -inset-0.5 -z-10 rounded-full bg-indigo-400/50 blur-md" />
       </div>
 
       <div className="min-w-0 flex-1">
         {/* 仅等待审批、还没有正文时，不渲染空气泡 */}
         {!(empty && !isStreaming && message.approval) && (
-        <div className="inline-block max-w-full rounded-[22px] rounded-bl-[8px] border border-white/80 bg-white/90 px-4 py-2.5 shadow-bubble backdrop-blur-sm sm:max-w-[88%]">
+        <div className="inline-block max-w-full rounded-[2px] border border-rule bg-paper-2 px-4 py-2.5 shadow-bubble sm:max-w-[88%]">
           {empty && isStreaming ? (
             <LiveStatus live={live} elapsedMs={elapsedMs} />
           ) : (
@@ -114,10 +113,10 @@ export default function MessageBubble({
               {isStreaming && live && (
                 <div className="mb-1.5 flex items-center gap-1.5 text-[11.5px] font-medium">
                   <span className="relative flex h-2 w-2 shrink-0">
-                    <span className="absolute inset-0 animate-ping rounded-full bg-brand-400/70" />
-                    <span className="relative h-2 w-2 rounded-full bg-brand-500" />
+                    <span className="absolute inset-0 animate-ping rounded-full bg-accent/40" />
+                    <span className="relative h-2 w-2 rounded-full bg-accent" />
                   </span>
-                  <span className="text-brand-600">{live.label}</span>
+                  <span className="text-accent">{live.label}</span>
                   <span className="tabular-nums text-slate-400">
                     已 {formatLatency(elapsedMs)}
                   </span>
@@ -252,8 +251,8 @@ function LiveStatus({
     <div className="min-w-[190px] py-0.5">
       <div className="flex items-center gap-2">
         <span className="relative flex h-2 w-2 shrink-0">
-          <span className="absolute inset-0 animate-ping rounded-full bg-brand-400/70" />
-          <span className="relative h-2 w-2 rounded-full bg-brand-500" />
+          <span className="absolute inset-0 animate-ping rounded-full bg-accent/40" />
+          <span className="relative h-2 w-2 rounded-full bg-accent" />
         </span>
         <span className="text-[13.5px] font-medium text-slate-700">
           {current}
@@ -331,14 +330,14 @@ function ApprovalCard({
         : '等待确认';
 
   return (
-    <div className="mt-2 max-w-full rounded-2xl border border-amber-200/80 bg-amber-50/75 p-3 sm:max-w-[88%]">
+    <div className="mt-2 max-w-full rounded-[2px] border border-rule-2 bg-paper-3 p-3 sm:max-w-[88%]">
       <div className="flex items-center gap-1.5">
         <svg
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
-          className="h-3.5 w-3.5 shrink-0 text-amber-600"
+          className="h-3.5 w-3.5 shrink-0 text-accent"
         >
           <path
             d="M12 3l7 3v5.5c0 4.2-2.9 7.6-7 9.5-4.1-1.9-7-5.3-7-9.5V6l7-3zM12 9v4m0 3h.01"
@@ -346,11 +345,11 @@ function ApprovalCard({
             strokeLinejoin="round"
           />
         </svg>
-        <span className="text-[12.5px] font-semibold text-amber-800">
+        <span className="text-[12.5px] font-semibold text-ink">
           {approval.title || '写操作需要确认'}
         </span>
         {!pending && (
-          <span className="ml-auto shrink-0 rounded-full bg-white/80 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+          <span className="ml-auto shrink-0 rounded-[2px] bg-accent/10 px-2 py-0.5 text-[11px] font-medium text-accent">
             {stateText}
           </span>
         )}
@@ -379,7 +378,7 @@ function ApprovalCard({
             type="button"
             disabled={disabled}
             onClick={() => onResolve?.(true)}
-            className="press flex-1 rounded-full bg-slate-900 px-3 py-1.5 text-[12px] font-medium text-white enabled:hover:bg-slate-800 disabled:opacity-50"
+            className="press flex-1 rounded-[2px] bg-accent px-3 py-1.5 text-[12px] font-semibold text-accent-ink enabled:hover:bg-accent-hi disabled:opacity-50"
           >
             批准执行
           </button>
@@ -387,7 +386,7 @@ function ApprovalCard({
             type="button"
             disabled={disabled}
             onClick={() => onResolve?.(false)}
-            className="press flex-1 rounded-full bg-white/85 px-3 py-1.5 text-[12px] font-medium text-slate-600 hairline enabled:hover:bg-white disabled:opacity-50"
+            className="press flex-1 rounded-[2px] bg-paper-2 px-3 py-1.5 text-[12px] font-medium text-slate-600 hairline enabled:hover:bg-paper-2 disabled:opacity-50"
           >
             拒绝，改自助方案
           </button>
@@ -404,7 +403,7 @@ function ApprovalCard({
  */
 function ToolCallList({ calls }: { calls: ToolCallRef[] }) {
   return (
-    <div className="mt-1.5 max-w-full rounded-2xl bg-white/55 p-1.5 hairline">
+    <div className="mt-1.5 max-w-full rounded-2xl bg-paper-2 p-1.5 hairline">
       <div className="flex items-center gap-1 px-1.5 pt-0.5 pb-1 text-[11.5px] font-medium text-slate-500">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3 w-3">
           <path d="M12 3c4.42 0 8 1.34 8 3s-3.58 3-8 3-8-1.34-8-3 3.58-3 8-3zm8 8.5c0 1.66-3.58 3-8 3s-8-1.34-8-3v-2c1.7 1.28 4.74 2 8 2s6.3-.72 8-2v2z" />
@@ -428,7 +427,7 @@ function ToolCallRow({ call, index }: { call: ToolCallRef; index: number }) {
   const hasDetails = details.length > 0;
 
   return (
-    <div className="rounded-xl bg-white/70 hairline">
+    <div className="rounded-xl bg-paper-2 hairline">
       <button
         type="button"
         disabled={!hasDetails}
@@ -442,7 +441,7 @@ function ToolCallRow({ call, index }: { call: ToolCallRef; index: number }) {
           {call.label}
         </span>
         {hasDetails && (
-          <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10.5px] font-medium tabular-nums text-slate-500">
+          <span className="shrink-0 rounded-[2px] bg-slate-100 px-1.5 py-0.5 text-[10.5px] font-medium tabular-nums text-slate-500">
             明细 {details.length}
           </span>
         )}
@@ -468,7 +467,7 @@ function ToolCallRow({ call, index }: { call: ToolCallRef; index: number }) {
       </div>
 
       {open && hasDetails && (
-        <ul className="space-y-1 border-t border-white/80 px-2 py-1.5 pl-3">
+        <ul className="space-y-1 border-t border-rule px-2 py-1.5 pl-3">
           {details.map((d, i) => (
             <li key={`${d}-${i}`} className="flex gap-1.5 text-[11px] leading-4 text-slate-500">
               <span className="shrink-0 tabular-nums text-slate-400">{i + 1}.</span>
@@ -485,7 +484,7 @@ function SourceList({ sources }: { sources: SourceRef[] }) {
   const [openName, setOpenName] = useState<string | null>(null);
 
   return (
-    <div className="mt-2 max-w-full rounded-2xl bg-white/55 p-2.5 hairline">
+    <div className="mt-2 max-w-full rounded-2xl bg-paper-2 p-2.5 hairline">
       <div className="flex items-center gap-1.5 px-2 pt-1 pb-1.5 text-[13px] font-medium text-slate-500">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
           <path d="M4 5.5A1.5 1.5 0 015.5 4H10l1.5 2h7A1.5 1.5 0 0120 7.5v11A1.5 1.5 0 0118.5 20h-13A1.5 1.5 0 014 18.5v-13z" strokeLinejoin="round" />
@@ -498,7 +497,7 @@ function SourceList({ sources }: { sources: SourceRef[] }) {
           const key = `${s.document_name}-${i}`;
           const active = openName === key;
           return (
-            <div key={key} className="rounded-xl bg-white/70 hairline">
+            <div key={key} className="rounded-xl bg-paper-2 hairline">
               <button
                 onClick={() => setOpenName(active ? null : key)}
                 className="flex w-full items-center gap-2 px-2.5 py-2 text-left"
@@ -507,7 +506,7 @@ function SourceList({ sources }: { sources: SourceRef[] }) {
                 <span className="min-w-0 flex-1 truncate text-[14px] text-slate-700">
                   {prettyName(s.document_name)}
                 </span>
-                <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[12.5px] font-medium tabular-nums text-emerald-600">
+                <span className="shrink-0 rounded-[2px] bg-emerald-50 px-2 py-0.5 text-[12.5px] font-medium tabular-nums text-emerald-600">
                   {Math.round(s.score * 100)}%
                 </span>
                 <svg

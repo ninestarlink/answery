@@ -1,4 +1,4 @@
-'use client';
+﻿﻿'use client';
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
@@ -60,97 +60,110 @@ export default function DashboardPage() {
     [],
   );
 
+  const runningApps = APPS.filter((a) => a.status === 'running');
+
   return (
     <AppShell>
       <div className="mx-auto w-full max-w-[1180px]">
-        {/* ===== Hero ===== */}
-        <header className="cut relative animate-fade-up overflow-hidden px-5 pt-6 md:px-9 md:pt-8">
-          <div aria-hidden className="glyph-field pointer-events-none absolute inset-y-0 right-0 w-1/2" />
+        {/* ===== Hero：工业报纸头版 ===== */}
+        <header className="animate-fade-up pt-4">
+          {/* 报头 */}
+          <div className="masthead flex flex-wrap items-end justify-between gap-x-6 gap-y-2 pb-2.5 pt-2.5">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="font-display text-[22px] font-semibold leading-none tracking-[0.02em] text-ink">
+                AnswerY
+              </span>
+              <span className="mono-label text-muted">自建知识库 · 智能客服中台</span>
+            </div>
+            <div className="flex items-baseline gap-3">
+              <span className="mono-label text-muted">{today}</span>
+              <span className="mono-label text-accent">No. 01 · Daily Edition</span>
+            </div>
+          </div>
 
-          <div className="relative flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-[560px]">
-              <div className="flex flex-wrap items-center gap-2.5 text-[11.5px] text-ink-muted">
-                <span className="flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-[1px] bg-accent" />
-                  AnswerY智能客服中台
+          <div className="mt-5 grid gap-8 md:grid-cols-[1.65fr_1fr]">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="mono-label bg-accent px-2 py-1 text-accent-ink">
+                  头条 / Lead
                 </span>
-                <span className="h-px w-6 bg-rule-2" aria-hidden />
-                <span className="font-mono tabular-nums">{today}</span>
+                <span className="mono-label text-muted">RAG · Traceable · Replayable</span>
               </div>
 
-              <h1 className="mt-4 font-display text-[29px] font-semibold leading-[1.06] text-ink md:text-[42px]">
+              <h1 className="mt-4 text-[38px] leading-[1.06] md:text-[62px]">
                 答案有出处，
-                <br className="hidden sm:block" />
-                动作有审批，过程可回放
+                <br />
+                <span className="text-accent">过程可回放。</span>
               </h1>
 
-              <p className="mt-3.5 max-w-[470px] text-[13px] leading-relaxed text-ink-2 md:text-[14px]">
-                自建 RAG 与 LangGraph Agent：每条结论都能翻到文档编号与章节，建工单等写操作先经人工确认，每轮对话落库可回放。
+              <p className="mt-4 max-w-[560px] text-[14px] leading-[1.85] text-muted md:text-[15.5px]">
+                每条结论都能翻到文档编号与章节；建工单等写操作先经人工确认；每轮对话落库，随时回放。
               </p>
 
               <div className="mt-6 flex flex-wrap items-center gap-2.5">
-                <Link href="/apps" className="key key--primary">
+                <Link
+                  href="/apps"
+                  className="press inline-flex min-h-[44px] items-center bg-accent px-6 text-[13px] font-semibold text-accent-ink shadow-[3px_3px_0_rgba(23,21,18,0.2)] transition hover:bg-accent-hi"
+                >
                   进入智能客服
-                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
-                    <path d="M7.22 4.22a.75.75 0 011.06 0l5.25 5.25a.75.75 0 010 1.06l-5.25 5.25a.75.75 0 11-1.06-1.06L11.94 10 7.22 5.28a.75.75 0 010-1.06z" />
-                  </svg>
                 </Link>
-                <Link href="/knowledge" className="key">
+                <Link
+                  href="/knowledge"
+                  className="press inline-flex min-h-[44px] items-center border border-ink-900 px-5 text-[13px] font-medium text-ink transition hover:bg-paper-3"
+                >
                   查看知识库
                 </Link>
               </div>
             </div>
 
-            {/* 桌面端：运行参数与规格 */}
-            <div className="relative hidden w-[268px] shrink-0 lg:block">
+            {/* 右栏：本期速览 */}
+            <aside className="md:border-l md:border-rule md:pl-6">
               <div className="flex items-baseline justify-between border-b border-rule pb-2">
-                <span className="text-[11.5px] font-medium text-ink-2">系统</span>
-                <span className="flex items-center gap-1.5 text-[11px] text-ink-muted">
-                  <span className="live-dot h-1.5 w-1.5 rounded-full bg-emerald-600" />
-                  运行中
-                </span>
+                <span className="mono-label text-ink">本期速览</span>
+                <span className="mono-label text-muted">In this issue</span>
               </div>
-              <dl className="divide-y divide-rule text-[12px]">
+              <div>
                 {[
-                  ['知识库', '16 份文档 / 162 切片'],
-                  ['检索', 'HNSW + BM25 + RRF'],
-                  ['工具', '6 个 / 写操作审批'],
-                  ['回放', 'chat_trace 逐轮落库'],
-                ].map(([k, v]) => (
-                  <div key={k} className="flex items-baseline justify-between gap-3 py-2">
-                    <dt className="shrink-0 text-ink-muted">{k}</dt>
-                    <dd className="truncate text-right font-mono text-[11.5px] tabular-nums text-ink-2">
-                      {v}
-                    </dd>
-                  </div>
+                  ['01', '知识库', '商品库 + 企业制度，多格式入库', '/knowledge'],
+                  ['02', '可溯源', '每条结论附文档编号与章节', '/monitor'],
+                  ['03', '可回放', '检索、工具、中断与延迟全记录', '/monitor'],
+                ].map(([no, title, desc, href]) => (
+                  <Link
+                    key={no}
+                    href={href}
+                    className="press group flex gap-3 border-b border-rule py-3"
+                  >
+                    <span className="font-mono text-[11px] leading-5 text-accent">{no}</span>
+                    <span className="min-w-0">
+                      <span className="block text-[14px] font-semibold leading-5 text-ink transition group-hover:text-accent">
+                        {title}
+                      </span>
+                      <span className="mt-0.5 block text-[11.5px] leading-relaxed text-muted">
+                        {desc}
+                      </span>
+                    </span>
+                  </Link>
                 ))}
-              </dl>
-              <Link
-                href="/monitor"
-                className="mt-2 inline-flex items-center gap-1 text-[11.5px] font-medium text-accent-deep hover:underline"
-              >
-                运行监控 →
-              </Link>
-            </div>
+              </div>
+              <div className="mt-4 flex items-baseline justify-between border-t border-ink-900/40 pt-2">
+                <span className="mono-label text-muted">System AY—2026</span>
+                <span className="mono-label text-muted">Hybrid · Rerank</span>
+              </div>
+            </aside>
           </div>
 
-          <div className="hero-graphite relative mt-7 -mx-5 flex items-center justify-between px-5 py-2.5 font-mono text-[10.5px] md:-mx-9 md:px-9">
-            <span className="truncate">
-              pgvector 0.8 / HNSW · bge-m3 1024d · BM25 + RRF · bge-reranker
-            </span>
-            <span className="hidden shrink-0 pl-4 text-accent-2 sm:block">SSE · streaming</span>
-          </div>
+          <div className="masthead-rule mt-7" aria-hidden />
         </header>
 
         {error && (
           <div className="mt-4 flex items-center gap-2 rounded-2xl bg-rose-50/80 px-4 py-3 text-[13px] text-rose-600 hairline">
-            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" />
+            <span className="h-1.5 w-1.5 shrink-0 rounded-[2px] bg-rose-500" />
             后端未连接（{error}）。请确认 FastAPI 已在 8000 端口运行。
           </div>
         )}
 
         {/* ===== 指标卡 ===== */}
-        <section className="mt-4 grid grid-cols-2 gap-2.5 md:grid-cols-4 md:gap-3.5">
+        <section className="mt-10 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
           <StatCard
             label="商品"
             value={stats?.products}
@@ -180,17 +193,17 @@ export default function DashboardPage() {
 
         {/* ===== 趋势 + 服务状态 ===== */}
         <section className="mt-3.5 grid grid-cols-1 gap-3.5 lg:grid-cols-3">
-          <div className="relative overflow-hidden rounded-[24px] border border-white/70 bg-white/75 p-4 shadow-bubble backdrop-blur-xl md:p-5 lg:col-span-2">
+          <div className="relative overflow-hidden rounded-[2px] bg-paper-2 p-4 shadow-lift md:p-5 lg:col-span-2">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
-                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-violet-500 text-white shadow-[0_8px_18px_-10px_rgba(99,102,241,0.9)]">
+                <span className="flex h-8 w-8 items-center justify-center rounded-[2px] bg-accent text-accent-ink">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
                     <path d="M3 17l5-6 4 3 6-8" strokeLinecap="round" strokeLinejoin="round" />
                     <path d="M15 6h4v4" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </span>
                 <div>
-                  <div className="text-[13.5px] font-semibold text-slate-800">
+                  <div className="font-display text-[15px] font-semibold text-slate-800">
                     近 7 天 Token 消耗
                   </div>
                   <div className="mt-0.5 text-[12px] text-slate-500">
@@ -198,14 +211,14 @@ export default function DashboardPage() {
                   </div>
                 </div>
               </div>
-              <span className="shrink-0 rounded-full bg-gradient-to-r from-brand-50 to-fuchsia-50 px-2.5 py-1 text-[12px] font-semibold tabular-nums text-brand-600 ring-1 ring-brand-100">
+              <span className="shrink-0 rounded-[2px] bg-accent-50 px-2.5 py-1 text-[12px] font-medium tabular-nums text-accent-600 ring-1 ring-accent-100">
                 {data ? data.trend.reduce((s, p) => s + p.tokens, 0).toLocaleString() : '—'} tokens
               </span>
             </div>
             <TrendChart trend={data?.trend ?? []} />
           </div>
 
-          <div className="relative overflow-hidden rounded-[24px] border border-white/70 bg-white/75 p-4 shadow-bubble backdrop-blur-xl md:p-5">
+          <div className="relative overflow-hidden rounded-[2px] bg-paper-2 p-4 shadow-lift md:p-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
@@ -213,40 +226,42 @@ export default function DashboardPage() {
                     <path d="M4 13h3l2-5 3 9 2.5-4H20" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </span>
-                <div className="text-[13.5px] font-semibold text-slate-800">系统状态</div>
+                <div className="font-display text-[15px] font-semibold text-slate-800">系统状态</div>
               </div>
               <Link href="/monitor" className="text-[12px] font-medium text-brand-600 hover:underline">
                 详情
               </Link>
             </div>
             <div className="mt-3 space-y-2">
-              {(monitor?.services ?? []).map((s) => (
-                <div
-                  key={s.name}
-                  className="flex items-center gap-2 rounded-xl border border-white/70 bg-white/70 px-3 py-2"
-                >
-                  <span
-                    className={`h-2 w-2 shrink-0 rounded-full ${
-                      s.status === 'ok'
-                        ? 'bg-emerald-500'
-                        : s.status === 'unconfigured'
-                          ? 'bg-amber-400'
-                          : 'bg-rose-500'
-                    }`}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[12.5px] font-medium text-slate-700">{s.name}</div>
-                    <div className="truncate text-[11.5px] text-slate-500">{s.target}</div>
+              {(monitor?.services ?? [])
+                .filter((s) => !s.name.startsWith('硅基流动'))
+                .map((s) => (
+                  <div
+                    key={s.name}
+                    className="flex items-center gap-2 rounded-[2px] border border-rule bg-paper-2 px-3 py-2"
+                  >
+                    <span
+                      className={`h-2 w-2 shrink-0 rounded-[2px] ${
+                        s.status === 'ok'
+                          ? 'bg-emerald-500'
+                          : s.status === 'unconfigured'
+                            ? 'bg-amber-400'
+                            : 'bg-rose-500'
+                      }`}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[12.5px] font-medium text-slate-700">{s.name}</div>
+                      <div className="truncate text-[11.5px] text-slate-500">{s.target}</div>
+                    </div>
+                    <span className="shrink-0 rounded-[2px] bg-slate-100/80 px-1.5 py-0.5 text-[10.5px] font-medium tabular-nums text-slate-500">
+                      {s.latency_ms != null ? `${s.latency_ms}ms` : '—'}
+                    </span>
                   </div>
-                  <span className="shrink-0 rounded-full bg-slate-100/80 px-1.5 py-0.5 text-[10.5px] font-medium tabular-nums text-slate-500">
-                    {s.latency_ms != null ? `${s.latency_ms}ms` : '—'}
-                  </span>
-                </div>
-              ))}
+                ))}
               {!monitor && (
                 <div className="space-y-2">
                   {[0, 1, 2].map((i) => (
-                    <div key={i} className="h-[46px] animate-pulse rounded-xl bg-white/60" />
+                    <div key={i} className="h-[46px] animate-pulse rounded-[2px] bg-paper-2" />
                   ))}
                 </div>
               )}
@@ -255,24 +270,24 @@ export default function DashboardPage() {
         </section>
 
         {/* ===== AI 应用 ===== */}
-        <section className="mt-7">
+        <section className="mt-9 border-t-[3px] border-ink-900 pt-4">
           <div className="flex items-end justify-between">
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-[17px] font-semibold tracking-tight-ios text-slate-900">
+                <h2 className="text-[22px] font-semibold tracking-tight-ios text-slate-900">
                   覆盖场景
                 </h2>
-                <span className="rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-medium text-slate-500 ring-1 ring-slate-200/70">
+                <span className="rounded-[2px] bg-paper-2 px-2 py-0.5 text-[11px] font-medium text-slate-500 ring-1 ring-slate-200/70">
                   {APPS.length}
                 </span>
               </div>
-              <p className="mt-0.5 text-[12.5px] text-slate-500">
+              <p className="mt-1 text-[12.5px] text-slate-500">
                 同一个输入框自动判断该查商品库还是制度库，答不出来会转人工
               </p>
             </div>
             <Link
               href="/apps"
-              className="press inline-flex items-center gap-1 rounded-full bg-white/70 px-3 py-1.5 text-[12.5px] font-medium text-brand-600 ring-1 ring-slate-200/70 hover:bg-white"
+              className="press inline-flex items-center gap-1 rounded-[2px] bg-paper-2 px-3 py-1.5 text-[12.5px] font-medium text-brand-600 ring-1 ring-slate-200/70 hover:bg-paper-2"
             >
               进入工作台 →
             </Link>
@@ -286,7 +301,7 @@ export default function DashboardPage() {
 
         {/* ===== 最近会话 + 最近订单 ===== */}
         <section className="mt-7 grid grid-cols-1 gap-3.5 lg:grid-cols-5">
-          <div className="rounded-[24px] border border-white/70 bg-white/75 p-4 shadow-bubble backdrop-blur-xl md:p-5 lg:col-span-3">
+          <div className="rounded-[2px] bg-paper-2 p-4 shadow-lift md:p-5 lg:col-span-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
@@ -294,7 +309,7 @@ export default function DashboardPage() {
                     <path d="M4 4h16a1 1 0 011 1v10a1 1 0 01-1 1H9l-5 4V5a1 1 0 011-1z" />
                   </svg>
                 </span>
-                <div className="text-[13.5px] font-semibold text-slate-800">最近会话</div>
+                <div className="font-display text-[15px] font-semibold text-slate-800">最近会话</div>
               </div>
               <span className="text-[12px] text-slate-500">{stats?.messages ?? 0} 条消息</span>
             </div>
@@ -305,9 +320,9 @@ export default function DashboardPage() {
                 data?.recent_chats.map((c) => (
                   <div key={c.id} className="flex items-start gap-2.5 py-2.5">
                     <span
-                      className={`mt-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold ${
+                      className={`mt-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-[2px] text-[9px] font-semibold ${
                         c.role === 'user'
-                          ? 'bg-slate-900 text-white'
+                          ? 'bg-accent text-accent-ink'
                           : 'bg-brand-50 text-brand-600'
                       }`}
                     >
@@ -319,7 +334,7 @@ export default function DashboardPage() {
                         {c.session_id.slice(0, 18)} · {c.created_at}
                       </div>
                     </div>
-                    <span className="shrink-0 rounded-full bg-slate-100/70 px-1.5 py-0.5 text-[11px] tabular-nums text-slate-500">
+                    <span className="shrink-0 rounded-[2px] bg-slate-100/70 px-1.5 py-0.5 text-[11px] tabular-nums text-slate-500">
                       {c.total_tokens} tk
                     </span>
                   </div>
@@ -328,7 +343,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="rounded-[24px] border border-white/70 bg-white/75 p-4 shadow-bubble backdrop-blur-xl md:p-5 lg:col-span-2">
+          <div className="rounded-[2px] bg-paper-2 p-4 shadow-lift md:p-5 lg:col-span-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-50 text-sky-600">
@@ -337,7 +352,7 @@ export default function DashboardPage() {
                     <path d="M9 9h6M9 13h6" strokeLinecap="round" />
                   </svg>
                 </span>
-                <div className="text-[13.5px] font-semibold text-slate-800">最近订单</div>
+                <div className="font-display text-[15px] font-semibold text-slate-800">最近订单</div>
               </div>
               <Link href="/database" className="text-[12px] font-medium text-brand-600 hover:underline">
                 数据库
@@ -350,7 +365,7 @@ export default function DashboardPage() {
                 data?.recent_orders.map((o) => (
                   <div
                     key={o.id}
-                    className="flex items-center gap-2 rounded-xl border border-white/70 bg-white/70 px-3 py-2"
+                    className="flex items-center gap-2 rounded-xl border border-rule bg-paper-2 px-3 py-2"
                   >
                     <span className="font-mono text-[12px] text-slate-600">#{o.id}</span>
                     <span className="min-w-0 flex-1 truncate text-[11.5px] text-slate-500">
@@ -368,7 +383,7 @@ export default function DashboardPage() {
         </section>
 
         <footer className="mt-8 flex items-center justify-center gap-2 pb-4 text-[11.5px] text-slate-500">
-          <span className="h-1.5 w-1.5 rounded-full bg-gradient-to-br from-brand-500 to-fuchsia-500" />
+          <span className="h-1.5 w-1.5 rounded-full bg-accent" />
           AnswerY智能客服中台 · React + FastAPI + LangGraph + pgvector · 所有数据均为演示虚构
         </footer>
       </div>
@@ -391,40 +406,34 @@ function StatCard({
 }) {
   return (
     <div
-      className={`sheen group relative overflow-hidden rounded-[22px] p-4 shadow-bubble hairline transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lift ${
+      className={`group relative overflow-hidden rounded-[2px] p-4 shadow-lift transition-colors duration-300 ${
         highlight
-          ? 'bg-gradient-to-br from-[#131a2e] via-[#1a2140] to-[#241a3f] text-white'
-          : 'bg-white/75 text-slate-900'
+          ? 'bg-accent text-accent-ink'
+          : 'bg-paper-2 text-ink'
       }`}
     >
-      {highlight && (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-10 -top-12 h-32 w-32 rounded-full bg-brand-500/40 blur-2xl"
-        />
-      )}
       <div className="relative flex items-center justify-between">
         <span
-          className={`text-[12px] font-medium ${
-            highlight ? 'text-white/60' : 'text-slate-500'
+          className={`mono-label text-[9.5px] ${
+            highlight ? 'text-accent-ink/70' : 'text-muted'
           }`}
         >
           {label}
         </span>
         <span
-          className={`flex h-7 w-7 items-center justify-center rounded-lg ${
-            highlight ? 'bg-white/10 text-brand-200' : 'bg-brand-50 text-brand-600'
+          className={`flex h-7 w-7 items-center justify-center rounded-[2px] ${
+            highlight ? 'border border-accent-ink/35 text-accent-ink' : 'bg-paper-3 text-accent'
           }`}
         >
           {icon}
         </span>
       </div>
-      <div className="relative mt-2 text-[27px] font-semibold leading-none tracking-tight-ios tabular-nums">
+      <div className="relative mt-2.5 font-display text-[30px] leading-none tracking-tight tabular-nums">
         {value == null ? '—' : value.toLocaleString()}
       </div>
       <div
         className={`relative mt-1.5 text-[11.5px] ${
-          highlight ? 'text-white/45' : 'text-slate-500'
+          highlight ? 'text-accent-ink/75' : 'text-muted'
         }`}
       >
         {hint}
@@ -491,21 +500,13 @@ function TrendChart({ trend }: { trend: { day: string; tokens: number }[] }) {
       <svg viewBox={`0 0 ${w} ${h}`} className="h-[150px] w-full" preserveAspectRatio="none">
         <defs>
           <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#6366f1" stopOpacity="0.32" />
-            <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
+            <stop offset="0%" stopColor="#c8452b" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="#c8452b" stopOpacity="0" />
           </linearGradient>
           <linearGradient id="lineStroke" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#6366f1" />
-            <stop offset="55%" stopColor="#8b5cf6" />
-            <stop offset="100%" stopColor="#d946ef" />
+            <stop offset="0%" stopColor="#b0341f" />
+            <stop offset="100%" stopColor="#c8452b" />
           </linearGradient>
-          <filter id="lineGlow" x="-20%" y="-60%" width="140%" height="220%">
-            <feGaussianBlur stdDeviation="3.5" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
         </defs>
         {[0.25, 0.5, 0.75].map((r) => (
           <line
@@ -514,7 +515,7 @@ function TrendChart({ trend }: { trend: { day: string; tokens: number }[] }) {
             x2={w - pad}
             y1={h - pad - r * (h - pad * 2)}
             y2={h - pad - r * (h - pad * 2)}
-            stroke="#e2e8f0"
+            stroke="#d8d3c8"
             strokeDasharray="3 4"
             strokeWidth="1"
           />
@@ -524,12 +525,11 @@ function TrendChart({ trend }: { trend: { day: string; tokens: number }[] }) {
           d={line}
           fill="none"
           stroke="url(#lineStroke)"
-          strokeWidth="2.5"
+          strokeWidth="2"
           strokeLinecap="round"
-          filter="url(#lineGlow)"
         />
         {coords.map((c) => (
-          <circle key={c.x} cx={c.x} cy={c.y} r="3" fill="#fff" stroke="#6366f1" strokeWidth="2" />
+          <circle key={c.x} cx={c.x} cy={c.y} r="3" fill="#faf8f3" stroke="#c8452b" strokeWidth="2" />
         ))}
       </svg>
       <div className="mt-1 flex justify-between px-1 text-[11px] text-slate-500">
@@ -553,7 +553,7 @@ function StatusPill({ status }: { status: string }) {
   };
   const item = map[status] ?? { label: status, cls: 'bg-slate-100 text-slate-600' };
   return (
-    <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-medium ${item.cls}`}>
+    <span className={`shrink-0 rounded-[2px] px-1.5 py-0.5 text-[11px] font-medium ${item.cls}`}>
       {item.label}
     </span>
   );

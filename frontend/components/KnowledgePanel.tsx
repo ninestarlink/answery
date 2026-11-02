@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 /**
  * 企业知识库文档面板：点击文档发起概括请求。
@@ -52,7 +52,7 @@ export default function KnowledgePanel({ onPick, onClose }: KnowledgePanelProps)
           <button
             onClick={onClose}
             aria-label="关闭文档面板"
-            className="press flex h-8 w-8 items-center justify-center rounded-full bg-white/70 text-slate-600 hairline"
+            className="press flex h-8 w-8 items-center justify-center rounded-full bg-paper-2 text-slate-600 hairline"
           >
             <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
               <path d="M5.28 4.22a.75.75 0 00-1.06 1.06L8.94 10l-4.72 4.72a.75.75 0 101.06 1.06L10 11.06l4.72 4.72a.75.75 0 101.06-1.06L11.06 10l4.72-4.72a.75.75 0 00-1.06-1.06L10 8.94 5.28 4.22z" />
@@ -66,7 +66,7 @@ export default function KnowledgePanel({ onPick, onClose }: KnowledgePanelProps)
           <button
             key={d.name}
             onClick={() => onPick(d.name)}
-            className="press group flex w-full items-center gap-2.5 rounded-2xl px-2.5 py-2.5 text-left transition-colors hover:bg-white/80"
+            className="press group flex w-full items-center gap-2.5 rounded-2xl px-2.5 py-2.5 text-left transition-colors hover:bg-paper-3"
           >
             <span
               className={`flex h-8 w-11 shrink-0 items-center justify-center rounded-lg text-[11px] font-semibold ${KIND_STYLE[d.kind]}`}
@@ -92,7 +92,7 @@ export default function KnowledgePanel({ onPick, onClose }: KnowledgePanelProps)
         ))}
       </div>
 
-      <div className="border-t border-white/70 px-4 py-3">
+      <div className="border-t border-rule px-4 py-3">
         <p className="text-[11.5px] leading-relaxed text-slate-500">
           混合检索（语义 0.7 / 关键词 0.3），通用分段 800 / 重叠 50；回答会标注命中的文档编号与版本。
         </p>

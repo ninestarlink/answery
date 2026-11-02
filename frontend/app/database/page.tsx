@@ -1,4 +1,4 @@
-'use client';
+﻿﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import AppShell from '@/components/AppShell';
@@ -72,11 +72,11 @@ export default function DatabasePage() {
   return (
     <AppShell>
       <div className="mx-auto w-full max-w-[1240px]">
-        <header>
-          <div className="text-[12px] font-medium tracking-wide text-slate-500">
-            DATABASE
+        <header className="border-b border-rule border-t-[3px] border-t-ink-900 pb-3 pt-3">
+          <div className="mono-label text-muted">
+            Database / 数据总账
           </div>
-          <h1 className="mt-1 text-[26px] font-semibold leading-tight tracking-tight-ios text-slate-900 md:text-[30px]">
+          <h1 className="mt-1.5 text-[26px] leading-tight text-slate-900 md:text-[30px]">
             数据库
           </h1>
           <p className="mt-1 text-[13px] text-slate-600">
@@ -93,7 +93,7 @@ export default function DatabasePage() {
 
         <div className="mt-4 grid grid-cols-1 gap-3.5 lg:grid-cols-[250px_minmax(0,1fr)]">
           {/* 表列表 */}
-          <div className="rounded-[24px] bg-white/72 p-3 shadow-bubble hairline backdrop-blur-xl">
+          <div className="rounded-[2px] bg-paper-2 p-3 shadow-lift">
             <div className="px-2 pb-2 pt-1 text-[12px] font-semibold uppercase tracking-[0.08em] text-slate-500">
               数据表（{tables.length}）
             </div>
@@ -106,8 +106,8 @@ export default function DatabasePage() {
                     onClick={() => selectTable(t.name)}
                     className={`press flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left transition ${
                       selected
-                        ? 'bg-white text-slate-900 shadow-bubble hairline'
-                        : 'text-slate-600 hover:bg-white/60 hover:text-slate-800'
+                        ? 'bg-paper-2 text-slate-900 shadow-lift'
+                        : 'text-slate-600 hover:bg-paper-2 hover:text-slate-800'
                     }`}
                   >
                     <svg
@@ -121,7 +121,7 @@ export default function DatabasePage() {
                       <div className="truncate font-mono text-[12px]">{t.name}</div>
                       <div className="truncate text-[11px] text-slate-500">{t.comment}</div>
                     </div>
-                    <span className="shrink-0 rounded-full bg-slate-100/80 px-1.5 py-0.5 text-[11px] tabular-nums text-slate-600">
+                    <span className="shrink-0 rounded-[2px] bg-slate-100/80 px-1.5 py-0.5 text-[11px] tabular-nums text-slate-600">
                       {t.rows < 0 ? '—' : t.rows}
                     </span>
                   </button>
@@ -130,7 +130,7 @@ export default function DatabasePage() {
               {tables.length === 0 && (
                 <div className="space-y-1.5">
                   {Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="h-10 animate-pulse rounded-xl bg-white/60" />
+                    <div key={i} className="h-10 animate-pulse rounded-xl bg-paper-2" />
                   ))}
                 </div>
               )}
@@ -138,14 +138,14 @@ export default function DatabasePage() {
           </div>
 
           {/* 数据区 */}
-          <div className="min-w-0 rounded-[24px] bg-white/72 p-4 shadow-bubble hairline backdrop-blur-xl md:p-5">
+          <div className="min-w-0 rounded-[2px] bg-paper-2 p-4 shadow-lift md:p-5">
             <div className="flex flex-wrap items-center gap-2">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-[13px] font-semibold text-slate-900">
                     {active}
                   </span>
-                  <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-600">
+                  <span className="rounded-[2px] bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-600">
                     {data?.comment ?? '—'}
                   </span>
                 </div>
@@ -155,7 +155,7 @@ export default function DatabasePage() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-1.5 rounded-full bg-white/85 px-3 py-1.5 hairline">
+              <div className="flex items-center gap-1.5 rounded-[2px] bg-paper-2 px-3 py-1.5 hairline">
                 <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 text-slate-500">
                   <path d="M8.5 3a5.5 5.5 0 104.23 8.99l2.64 2.64a.75.75 0 101.06-1.06l-2.64-2.64A5.5 5.5 0 008.5 3zm-4 5.5a4 4 0 118 0 4 4 0 01-8 0z" />
                 </svg>
@@ -206,7 +206,7 @@ export default function DatabasePage() {
                       <tr
                         key={i}
                         className={`border-t border-slate-100/80 ${
-                          i % 2 ? 'bg-white/40' : 'bg-white/70'
+                          i % 2 ? 'bg-paper-2/60' : 'bg-transparent'
                         }`}
                       >
                         {(data?.columns ?? []).map((c) => {
@@ -238,7 +238,7 @@ export default function DatabasePage() {
                 <button
                   onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
                   disabled={offset === 0}
-                  className="press rounded-full bg-white px-3 py-1.5 text-[12px] text-slate-600 hairline disabled:opacity-40"
+                  className="press rounded-[2px] bg-paper-2 px-3 py-1.5 text-[12px] text-slate-600 hairline disabled:opacity-40"
                 >
                   上一页
                 </button>
@@ -249,7 +249,7 @@ export default function DatabasePage() {
                 <button
                   onClick={() => setOffset(offset + PAGE_SIZE)}
                   disabled={offset + PAGE_SIZE >= (data?.total ?? 0)}
-                  className="press rounded-full bg-white px-3 py-1.5 text-[12px] text-slate-600 hairline disabled:opacity-40"
+                  className="press rounded-[2px] bg-paper-2 px-3 py-1.5 text-[12px] text-slate-600 hairline disabled:opacity-40"
                 >
                   下一页
                 </button>

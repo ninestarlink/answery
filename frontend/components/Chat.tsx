@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import {
   forwardRef,
@@ -36,25 +36,25 @@ export interface ChatHandle {
   newChat: () => void;
 }
 
-/** 主题色配置：电商用靛蓝，企业知识库用翡翠绿，便于一眼区分场景 */
+/** 主题：Vantage 只有一个信号色，两套场景共用青柠 */
 const ACCENTS = {
   indigo: {
-    orb: 'from-brand-500 via-indigo-500 to-violet-500',
-    glow: 'from-brand-300/50 to-violet-300/40',
-    halo: 'shadow-[0_20px_50px_-18px_rgba(99,102,241,0.9)]',
-    send: 'from-brand-600 to-indigo-500',
-    sendShadow: 'shadow-[0_8px_20px_-8px_rgba(79,70,229,0.9)]',
-    dot: 'bg-brand-50 text-brand-600',
-    pulse: 'bg-brand-500',
+    orb: 'from-accent to-accent',
+    glow: 'from-accent/0 to-accent/0',
+    halo: 'shadow-none',
+    send: 'from-accent to-accent',
+    sendShadow: 'shadow-none',
+    dot: 'bg-brand-50 text-accent',
+    pulse: 'bg-accent',
   },
   emerald: {
-    orb: 'from-emerald-400 via-teal-400 to-cyan-500',
-    glow: 'from-emerald-300/50 to-cyan-300/40',
-    halo: 'shadow-[0_20px_50px_-18px_rgba(16,185,129,0.85)]',
-    send: 'from-emerald-500 to-teal-500',
-    sendShadow: 'shadow-[0_8px_20px_-8px_rgba(16,185,129,0.9)]',
-    dot: 'bg-emerald-50 text-emerald-600',
-    pulse: 'bg-emerald-500',
+    orb: 'from-accent to-accent',
+    glow: 'from-accent/0 to-accent/0',
+    halo: 'shadow-none',
+    send: 'from-accent to-accent',
+    sendShadow: 'shadow-none',
+    dot: 'bg-brand-50 text-accent',
+    pulse: 'bg-accent',
   },
 } as const;
 
@@ -344,7 +344,7 @@ const Chat = forwardRef<ChatHandle, ChatProps>(function Chat(
   return (
     <section className="relative flex h-full min-w-0 flex-1 flex-col">
       {/* 顶栏：毛玻璃 + 极细描边 */}
-      <header className="relative z-20 flex h-[60px] shrink-0 items-center justify-between gap-3 border-b border-white/60 bg-white/70 px-3.5 backdrop-blur-xl md:px-7">
+      <header className="relative z-20 flex h-[60px] shrink-0 items-center justify-between gap-3 border-b border-rule bg-paper-2 px-3.5 backdrop-blur-xl md:px-7">
         <span
           aria-hidden
           className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-brand-200/70 to-transparent"
@@ -355,7 +355,7 @@ const Chat = forwardRef<ChatHandle, ChatProps>(function Chat(
             <button
               onClick={onOpenSidebar}
               aria-label="打开侧边栏"
-              className="press flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/70 text-slate-600 hairline md:hidden"
+              className="press flex h-9 w-9 shrink-0 items-center justify-center rounded-[2px] bg-paper-2 text-slate-600 hairline md:hidden"
             >
               <svg viewBox="0 0 20 20" fill="currentColor" className="h-[18px] w-[18px]">
                 <path d="M3 5.25a.75.75 0 01.75-.75h12.5a.75.75 0 010 1.5H3.75A.75.75 0 013 5.25zM3 10a.75.75 0 01.75-.75h12.5a.75.75 0 010 1.5H3.75A.75.75 0 013 10zm.75 4a.75.75 0 000 1.5h12.5a.75.75 0 000-1.5H3.75z" />
@@ -364,9 +364,9 @@ const Chat = forwardRef<ChatHandle, ChatProps>(function Chat(
           )}
 
           <div
-            className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${theme.orb} md:hidden`}
+            className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-[2px] bg-gradient-to-br ${theme.orb} md:hidden`}
           >
-            <span className="h-2 w-2 rounded-full bg-white" />
+            <span className="h-2 w-2 rounded-[2px] bg-paper-2" />
           </div>
 
           <div className="min-w-0">
@@ -384,7 +384,7 @@ const Chat = forwardRef<ChatHandle, ChatProps>(function Chat(
 
         <button
           onClick={newChat}
-          className="press flex shrink-0 items-center gap-1.5 rounded-full bg-white/75 px-3 py-1.5 text-[13px] font-medium text-slate-600 hairline hover:bg-white"
+          className="press flex shrink-0 items-center gap-1.5 rounded-[2px] bg-paper-2 px-3 py-1.5 text-[13px] font-medium text-slate-600 hairline hover:bg-paper-2"
         >
           <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 text-slate-600">
             <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
@@ -398,9 +398,8 @@ const Chat = forwardRef<ChatHandle, ChatProps>(function Chat(
         ref={scrollRef}
         className="nice-scroll relative flex-1 overflow-y-auto px-3.5 pb-4 pt-6 md:px-7"
       >
-        {/* 对话区氛围背景 */}
+        {/* 对话区底纹：实测点阵 */}
         <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute left-1/2 top-[-180px] h-[420px] w-[760px] -translate-x-1/2 rounded-full bg-gradient-to-br from-brand-200/25 via-fuchsia-100/15 to-transparent blur-3xl" />
           <div className="dot-grid absolute inset-0 opacity-30" />
         </div>
         <div className="relative mx-auto w-full max-w-[820px] space-y-5">
@@ -412,7 +411,6 @@ const Chat = forwardRef<ChatHandle, ChatProps>(function Chat(
               title={emptyTitle}
               desc={emptyDesc}
               hint={emptyHint}
-              theme={theme}
             />
           ) : (
             messages.map((m) => (
@@ -433,7 +431,7 @@ const Chat = forwardRef<ChatHandle, ChatProps>(function Chat(
       <div className="relative z-10 shrink-0 px-3.5 pb-safe pt-2 md:px-7 md:pb-5">
         <div className="pointer-events-none absolute inset-x-0 -top-8 h-8 bg-gradient-to-t from-canvas to-transparent" />
         <div className="mx-auto w-full max-w-[820px]">
-          <div className="flex items-end gap-2 rounded-[28px] border border-white/80 bg-white/90 p-1.5 pl-4 shadow-glass backdrop-blur-xl transition-all focus-within:border-brand-200/80 focus-within:shadow-lift focus-within:ring-4 focus-within:ring-brand-100/50">
+          <div className="flex items-end gap-2 rounded-[2px] border border-rule bg-paper-2 p-1.5 pl-4 transition-all focus-within:border-accent/70 focus-within:ring-1 focus-within:ring-accent/30">
             <textarea
               ref={inputRef}
               value={input}
@@ -446,16 +444,16 @@ const Chat = forwardRef<ChatHandle, ChatProps>(function Chat(
             {streaming ? (
               <button
                 onClick={() => abortChat(app)}
-                className="press flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-900/90 text-white"
+                className="press flex h-10 w-10 shrink-0 items-center justify-center rounded-[2px] bg-paper-3 text-ink hairline"
                 title="停止生成"
               >
-                <span className="h-3 w-3 rounded-[3px] bg-current" />
+                <span className="h-3 w-3 rounded-[2px] bg-current" />
               </button>
             ) : (
               <button
                 onClick={() => void ask(input)}
                 disabled={!input.trim()}
-                className={`press flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${theme.send} text-white ${theme.sendShadow} enabled:hover:brightness-105 disabled:bg-none disabled:bg-slate-200 disabled:text-slate-500 disabled:shadow-none`}
+                className={`press flex h-10 w-10 shrink-0 items-center justify-center rounded-[2px] bg-accent text-accent-ink enabled:hover:bg-accent-hi disabled:bg-paper-3 disabled:text-muted`}
                 title="发送（Enter）"
               >
                 <svg viewBox="0 0 20 20" fill="currentColor" className="h-[18px] w-[18px]">
@@ -486,31 +484,31 @@ function StatusBadge({
 }) {
   if (streaming) {
     return (
-      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11.5px] font-medium text-brand-600">
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-500" />
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-[2px] bg-brand-50 px-2 py-0.5 text-[11.5px] font-medium text-brand-600">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-[2px] bg-brand-500" />
         生成中
       </span>
     );
   }
   if (mode === 'api') {
     return (
-      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11.5px] font-medium text-emerald-600">
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-[2px] bg-emerald-50 px-2 py-0.5 text-[11.5px] font-medium text-emerald-600">
+        <span className="h-1.5 w-1.5 rounded-[2px] bg-emerald-500" />
         已连接
       </span>
     );
   }
   if (mode === 'mock') {
     return (
-      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11.5px] font-medium text-amber-600">
-        <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-[2px] bg-amber-50 px-2 py-0.5 text-[11.5px] font-medium text-amber-600">
+        <span className="h-1.5 w-1.5 rounded-[2px] bg-amber-500" />
         演示模式
       </span>
     );
   }
   return (
-    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11.5px] font-medium text-slate-600">
-      <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-[2px] bg-slate-100 px-2 py-0.5 text-[11.5px] font-medium text-slate-600">
+      <span className="h-1.5 w-1.5 rounded-[2px] bg-slate-400" />
       待连接
     </span>
   );
@@ -524,7 +522,6 @@ function EmptyState({
   title,
   desc,
   hint,
-  theme,
 }: {
   onPick: (q: string) => void;
   disabled: boolean;
@@ -532,31 +529,24 @@ function EmptyState({
   title: string;
   desc: string;
   hint: string;
-  theme: (typeof ACCENTS)[keyof typeof ACCENTS];
 }) {
   return (
     <div className="flex min-h-[calc(100dvh-230px)] flex-col justify-center py-4 text-center">
-      {/* 渐变光球：旋转锥形描边 + 呼吸光晕 */}
-      <div className="relative mx-auto h-[84px] w-[84px]">
-        <div
-          className={`absolute -inset-6 animate-breathe rounded-full bg-gradient-to-br ${theme.glow} blur-2xl`}
-        />
-        <div className="conic-ring absolute -inset-[2px] rounded-full opacity-90" />
-        <div className="absolute inset-0 rounded-full bg-white/85" />
-        <div
-          className={`absolute inset-[5px] flex items-center justify-center rounded-full bg-gradient-to-br ${theme.orb} ${theme.halo}`}
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor" className="h-9 w-9 text-white">
-            <path d="M12 2l1.9 5.6L19.5 9.5 13.9 11.4 12 17l-1.9-5.6L4.5 9.5l5.6-1.9L12 2z" />
-          </svg>
+      {/* 应用图标式题花：白卡托一枚暖橙字母 */}
+      <div className="mx-auto flex flex-col items-center">
+        <div className="flex items-center gap-2 text-[11px] tracking-[0.08em] text-muted">
+          AnswerY · 智能客服
+        </div>
+        <div className="mt-5 flex h-16 w-16 items-center justify-center rounded-[2px] bg-paper-2 shadow-lift">
+          <span className="text-[30px] font-semibold leading-none text-accent">A</span>
         </div>
       </div>
 
-      <h1 className="mx-auto mt-7 max-w-lg px-4 text-[27px] font-semibold leading-tight tracking-tight-ios text-slate-900 sm:text-[34px]">
+      <h1 className="mx-auto mt-6 max-w-lg px-4 text-[27px] leading-[1.25] tracking-[-0.022em] text-slate-900 sm:text-[34px]">
         {title}
       </h1>
       {desc && (
-        <p className="mx-auto mt-3 max-w-md px-4 text-[13.5px] leading-relaxed text-slate-600">
+        <p className="mx-auto mt-3 max-w-md px-4 text-[13.5px] leading-[1.7] text-slate-600">
           {desc}
         </p>
       )}
@@ -569,9 +559,9 @@ function EmptyState({
             disabled={disabled}
             onClick={() => onPick(q.text)}
             style={{ animationDelay: `${i * 60}ms` }}
-            className="press group flex animate-fade-up items-center gap-2.5 rounded-2xl border border-white/80 bg-white/75 px-3.5 py-3 text-left text-[13.5px] text-slate-700 shadow-bubble backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-brand-200/70 hover:bg-white hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="press group flex animate-fade-up items-center gap-2.5 rounded-[2px] border border-rule bg-paper-2 px-3.5 py-3 text-left text-[13.5px] text-slate-700 transition hover:-translate-y-0.5 hover:border-accent/60 hover:bg-paper-3 hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-base shadow-[inset_0_0_0_1px_rgba(15,23,42,0.05)]">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[2px] bg-paper-3 text-base">
               {q.icon}
             </span>
             <span className="flex-1">{q.text}</span>
@@ -589,7 +579,7 @@ function EmptyState({
 
       {hint && (
         <p className="mt-6 inline-flex items-center justify-center gap-1.5 text-[12px] text-slate-500">
-          <span className={`h-1.5 w-1.5 rounded-full ${theme.pulse}`} />
+          <span className="h-1.5 w-1.5 rounded-[2px] bg-accent" />
           {hint}
         </p>
       )}

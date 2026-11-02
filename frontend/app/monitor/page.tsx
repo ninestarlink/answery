@@ -1,4 +1,4 @@
-'use client';
+﻿﻿'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import AppShell from '@/components/AppShell';
@@ -96,12 +96,12 @@ export default function MonitorPage() {
   return (
     <AppShell>
       <div className="mx-auto w-full max-w-[1180px]">
-        <header className="flex flex-wrap items-end justify-between gap-3">
+        <header className="flex flex-wrap items-end justify-between gap-3 border-b border-rule border-t-[3px] border-t-ink-900 pb-3 pt-3">
           <div>
-            <div className="text-[12px] font-medium tracking-wide text-slate-500">
-              OBSERVABILITY
+            <div className="mono-label text-muted">
+              Observability / 系统监控
             </div>
-            <h1 className="mt-1 text-[26px] font-semibold leading-tight tracking-tight-ios text-slate-900 md:text-[30px]">
+            <h1 className="mt-1.5 text-[26px] leading-tight text-slate-900 md:text-[30px]">
               系统监控
             </h1>
             <p className="mt-1 text-[13px] text-slate-600">
@@ -111,8 +111,8 @@ export default function MonitorPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setAuto((v) => !v)}
-              className={`press rounded-full px-3 py-1.5 text-[12px] font-medium hairline ${
-                auto ? 'bg-emerald-50 text-emerald-600' : 'bg-white/80 text-slate-600'
+              className={`press rounded-[2px] px-3 py-1.5 text-[12px] font-medium hairline ${
+                auto ? 'bg-emerald-50 text-emerald-600' : 'bg-paper-2 text-slate-600'
               }`}
             >
               {auto ? '自动刷新 · 开' : '自动刷新 · 关'}
@@ -120,7 +120,7 @@ export default function MonitorPage() {
             <button
               onClick={() => void refreshAll()}
               disabled={loading}
-              className="press rounded-full bg-slate-900 px-3.5 py-1.5 text-[12px] font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+              className="press rounded-[2px] bg-accent px-3.5 py-1.5 text-[12px] font-medium text-accent-ink hover:bg-accent-hi disabled:opacity-60"
             >
               {loading ? '刷新中' : '立即刷新'}
             </button>
@@ -135,25 +135,20 @@ export default function MonitorPage() {
 
         {/* 总体状态 */}
         <div
-          className={`mt-4 flex items-center gap-3 rounded-[24px] p-4 shadow-bubble hairline md:p-5 ${
+          className={`mt-4 flex items-center gap-3 rounded-[2px] p-4 hairline md:p-5 ${
             healthy
-              ? 'bg-gradient-to-r from-emerald-50/90 to-white/70'
-              : 'bg-gradient-to-r from-amber-50/90 to-white/70'
+              ? 'bg-gradient-to-r from-accent-50/90 to-paper-2'
+              : 'bg-gradient-to-r from-paper-3/90 to-paper-2'
           }`}
         >
           <div
-            className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white ${
-              healthy ? 'bg-emerald-500' : 'bg-amber-500'
+            className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-[2px] ${
+              healthy ? 'bg-accent text-accent-ink' : 'bg-paper-3 text-ink-2 hairline'
             }`}
           >
             <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
               <path d="M12 2a10 10 0 100 20 10 10 0 000-20zm-1.2 14.4l-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4-7 7z" />
             </svg>
-            <span
-              className={`absolute -inset-1 -z-10 rounded-2xl blur-md ${
-                healthy ? 'bg-emerald-400/50' : 'bg-amber-400/50'
-              }`}
-            />
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-[14px] font-semibold text-slate-900">
@@ -173,56 +168,58 @@ export default function MonitorPage() {
 
         {/* 服务卡片 */}
         <section className="mt-3.5 grid grid-cols-1 gap-3.5 md:grid-cols-3">
-          {services.map((s) => (
-            <div
-              key={s.name}
-              className="rounded-[24px] bg-white/72 p-4 shadow-bubble hairline backdrop-blur-xl md:p-5"
-            >
-              <div className="flex items-center justify-between">
-                <div className="text-[13px] font-semibold text-slate-800">{s.name}</div>
-                <span
-                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                    s.status === 'ok'
-                      ? 'bg-emerald-50 text-emerald-600'
-                      : s.status === 'unconfigured'
-                        ? 'bg-amber-50 text-amber-600'
-                        : 'bg-rose-50 text-rose-600'
-                  }`}
-                >
+          {services
+            .filter((s) => !s.name.startsWith('硅基流动'))
+            .map((s) => (
+              <div
+                key={s.name}
+                className="rounded-[2px] bg-paper-2 p-4 shadow-lift md:p-5"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="text-[13px] font-semibold text-slate-800">{s.name}</div>
                   <span
-                    className={`h-1.5 w-1.5 rounded-full ${
+                    className={`inline-flex items-center gap-1 rounded-[2px] px-2 py-0.5 text-[11px] font-medium ${
                       s.status === 'ok'
-                        ? 'bg-emerald-500'
+                        ? 'bg-emerald-50 text-emerald-600'
                         : s.status === 'unconfigured'
-                          ? 'bg-amber-500'
-                          : 'bg-rose-500'
+                          ? 'bg-amber-50 text-amber-600'
+                          : 'bg-rose-50 text-rose-600'
                     }`}
-                  />
-                  {s.status === 'ok' ? '正常' : s.status === 'unconfigured' ? '未配置' : '异常'}
-                </span>
-              </div>
-              <div className="mt-1 truncate font-mono text-[11.5px] text-slate-500">
-                {s.target}
-              </div>
+                  >
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        s.status === 'ok'
+                          ? 'bg-emerald-500'
+                          : s.status === 'unconfigured'
+                            ? 'bg-amber-500'
+                            : 'bg-rose-500'
+                      }`}
+                    />
+                    {s.status === 'ok' ? '正常' : s.status === 'unconfigured' ? '未配置' : '异常'}
+                  </span>
+                </div>
+                <div className="mt-1 truncate font-mono text-[11.5px] text-slate-500">
+                  {s.target}
+                </div>
 
-              <div className="mt-3 flex items-end justify-between">
-                <div>
-                  <div className="text-[11px] text-slate-500">响应延迟</div>
-                  <div className="mt-0.5 text-[22px] font-semibold leading-none tabular-nums text-slate-900">
-                    {s.latency_ms != null ? s.latency_ms : '—'}
-                    <span className="ml-1 text-[11.5px] font-normal text-slate-500">ms</span>
+                <div className="mt-3 flex items-end justify-between">
+                  <div>
+                    <div className="text-[11px] text-slate-500">响应延迟</div>
+                    <div className="mt-0.5 text-[22px] font-semibold leading-none tabular-nums text-slate-900">
+                      {s.latency_ms != null ? s.latency_ms : '—'}
+                      <span className="ml-1 text-[11.5px] font-normal text-slate-500">ms</span>
+                    </div>
                   </div>
+                  <LatencyBars latency={s.latency_ms} status={s.status} />
                 </div>
-                <LatencyBars latency={s.latency_ms} status={s.status} />
-              </div>
 
-              {s.error && (
-                <div className="mt-2 truncate text-[11px] text-rose-500" title={s.error}>
-                  {s.error}
-                </div>
-              )}
-            </div>
-          ))}
+                {s.error && (
+                  <div className="mt-2 truncate text-[11px] text-rose-500" title={s.error}>
+                    {s.error}
+                  </div>
+                )}
+              </div>
+            ))}
         </section>
 
         {/* 业务指标 */}
@@ -237,7 +234,7 @@ export default function MonitorPage() {
         </section>
 
         {/* 对话执行轨迹 */}
-        <section className="mt-3.5 rounded-[24px] bg-white/72 p-4 shadow-bubble hairline backdrop-blur-xl md:p-5">
+        <section className="mt-3.5 rounded-[2px] bg-paper-2 p-4 shadow-lift md:p-5">
           <div className="flex items-center justify-between">
             <div className="text-[13.5px] font-semibold text-slate-800">最近执行轨迹</div>
             <span className="text-[11.5px] text-slate-500">chat_trace · 最近 {traces.length} 条</span>
@@ -264,7 +261,7 @@ export default function MonitorPage() {
                 </thead>
                 <tbody>
                   {traces.map((t) => (
-                    <tr key={t.id} className="rounded-xl bg-white/70 text-[12px] text-slate-600">
+                    <tr key={t.id} className="rounded-xl bg-paper-2 text-[12px] text-slate-600">
                       <td className="whitespace-nowrap px-2 py-1.5 tabular-nums text-slate-500">
                         {(t.created_at || '').slice(5, 16)}
                       </td>
@@ -276,7 +273,7 @@ export default function MonitorPage() {
                       </td>
                       <td className="whitespace-nowrap px-2 py-1.5">
                         <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                          className={`inline-flex items-center gap-1 rounded-[2px] px-2 py-0.5 text-[11px] font-medium ${
                             t.status === 'ok'
                               ? 'bg-emerald-50 text-emerald-600'
                               : t.status === 'interrupted'
@@ -301,7 +298,7 @@ export default function MonitorPage() {
           )}
         </section>
 
-        <section className="mt-3.5 rounded-[24px] bg-white/72 p-4 shadow-bubble hairline backdrop-blur-xl md:p-5">
+        <section className="mt-3.5 rounded-[2px] bg-paper-2 p-4 shadow-lift md:p-5">
           <div className="flex items-center justify-between">
             <div className="text-[13.5px] font-semibold text-slate-800">说明</div>
             <span className="text-[11.5px] text-slate-500">GET /api/admin/services · 3s</span>
@@ -320,7 +317,7 @@ export default function MonitorPage() {
 
 function Metric({ label, value, unit }: { label: string; value?: number; unit: string }) {
   return (
-    <div className="rounded-[20px] bg-white/72 px-4 py-3 shadow-bubble hairline backdrop-blur-xl">
+    <div className="rounded-[2px] bg-paper-2 px-4 py-3 shadow-lift">
       <div className="text-[11.5px] font-medium text-slate-500">{label}</div>
       <div className="mt-1 text-[20px] font-semibold leading-none tabular-nums tracking-tight-ios text-slate-900">
         {value == null ? '—' : value.toLocaleString()}
@@ -337,7 +334,7 @@ function LatencyBars({ latency, status }: { latency: number | null; status: stri
       {[1, 2, 3].map((n) => (
         <span
           key={n}
-          className={`w-1.5 rounded-full ${
+          className={`w-1.5 rounded-[2px] ${
             n <= level
               ? status === 'ok'
                 ? 'bg-emerald-500'

@@ -1,4 +1,4 @@
-'use client';
+﻿﻿'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
@@ -99,19 +99,19 @@ export default function KnowledgePage() {
   return (
     <AppShell>
       <div className="mx-auto w-full max-w-[1180px]">
-        <header className="flex flex-wrap items-end justify-between gap-3">
+        <header className="flex flex-wrap items-end justify-between gap-3 border-b border-rule border-t-[3px] border-t-ink-900 pb-3 pt-3">
           <div>
-            <div className="text-[12px] font-medium tracking-wide text-slate-500">
-              KNOWLEDGE BASE
+            <div className="mono-label text-muted">
+              Knowledge Base / 知识档案
             </div>
-            <h1 className="mt-1 text-[26px] font-semibold leading-tight tracking-tight-ios text-slate-900 md:text-[30px]">
+            <h1 className="mt-1.5 text-[26px] leading-tight text-slate-900 md:text-[30px]">
               知识库
             </h1>
             <p className="mt-1 text-[13px] text-slate-600">
               统一走 Embedding + 混合检索 + Rerank 精排，检索时按问题语义挑用；点开文档可核对原文。
             </p>
           </div>
-          <span className="rounded-full bg-emerald-50 px-3 py-1 text-[12px] font-medium text-emerald-600">
+          <span className="rounded-[2px] border border-emerald-200 bg-emerald-50 px-3 py-1 text-[12px] font-medium text-emerald-600">
             {datasets.length} 个知识库 ·{' '}
             {datasets.reduce((s, d) => s + d.total_documents, 0)} 份文档
           </span>
@@ -131,13 +131,15 @@ export default function KnowledgePage() {
               <button
                 key={ds.id}
                 onClick={() => switchDataset(ds.id)}
-                className={`press rounded-[24px] p-4 text-left transition hairline ${
-                  selected ? 'bg-white shadow-bubble' : 'bg-white/60 hover:bg-white/85'
+                className={`press rounded-[2px] p-4 text-left transition ${
+                  selected
+                    ? 'bg-paper-3 shadow-none ring-1 ring-accent/40'
+                    : 'bg-paper-2 hairline hover:bg-paper-3'
                 }`}
               >
                 <div className="flex items-start gap-2.5">
                   <span
-                    className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                    className={`mt-1.5 h-2 w-2 shrink-0 rounded-[2px] ${
                       selected ? 'bg-emerald-500' : 'bg-slate-300'
                     }`}
                   />
@@ -147,20 +149,20 @@ export default function KnowledgePage() {
                         {ds.name}
                       </span>
                       {selected && (
-                        <span className="shrink-0 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-600">
+                        <span className="shrink-0 rounded-[2px] bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-600">
                           当前
                         </span>
                       )}
                     </div>
                     <div className="mt-0.5 truncate text-[12px] text-slate-500">{ds.subtitle}</div>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11.5px]">
-                      <span className="rounded-full bg-slate-100/80 px-2 py-0.5 text-slate-600">
+                      <span className="rounded-[2px] bg-slate-100/80 px-2 py-0.5 text-slate-600">
                         {ds.total_documents} 份文档
                       </span>
-                      <span className="rounded-full bg-slate-100/80 px-2 py-0.5 text-slate-600">
+                      <span className="rounded-[2px] bg-slate-100/80 px-2 py-0.5 text-slate-600">
                         {ds.total_chars.toLocaleString()} 字符
                       </span>
-                      <span className="rounded-full bg-brand-50 px-2 py-0.5 text-brand-600">
+                      <span className="rounded-[2px] bg-brand-50 px-2 py-0.5 text-brand-600">
                         {ds.engine}
                       </span>
                     </div>
@@ -187,7 +189,7 @@ export default function KnowledgePage() {
         </section>
 
         {/* 文档清单：两个知识库统一结构，可点开查看原文 */}
-        <section className="mt-3.5 rounded-[24px] bg-white/72 p-4 shadow-bubble hairline backdrop-blur-xl md:p-5">
+        <section className="mt-3.5 rounded-[2px] bg-paper-2 p-4 shadow-lift md:p-5">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <div>
               <div className="text-[13.5px] font-semibold text-slate-800">文档清单</div>
@@ -196,7 +198,7 @@ export default function KnowledgePage() {
               </div>
             </div>
             {activeDataset && (
-              <span className="rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-medium text-brand-600">
+              <span className="rounded-[2px] bg-brand-50 px-2.5 py-1 text-[11px] font-medium text-brand-600">
                 {activeDataset.segmentation}
               </span>
             )}
@@ -210,7 +212,7 @@ export default function KnowledgePage() {
                 <div
                   key={item.file}
                   className={`relative rounded-2xl transition hairline ${
-                    selected ? 'bg-white shadow-bubble' : 'bg-white/80 hover:bg-white'
+                    selected ? 'bg-paper-2 shadow-bubble' : 'bg-paper-2 hover:bg-paper-2'
                   } ${item.missing ? 'opacity-60' : ''}`}
                 >
                   <button
@@ -265,7 +267,7 @@ export default function KnowledgePage() {
                     <button
                       onClick={() => void downloadDoc(activeDataset.id, item.file)}
                       title="下载原文件，用本地应用打开"
-                      className="press absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-slate-100/80 text-slate-500 transition hover:bg-slate-200 hover:text-slate-900"
+                      className="press absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-[2px] bg-slate-100/80 text-slate-500 transition hover:bg-slate-200 hover:text-slate-900"
                     >
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
                         <path d="M12 4v10m0 0l-3.5-3.5M12 14l3.5-3.5M5 18h14" strokeLinecap="round" strokeLinejoin="round" />
@@ -284,11 +286,11 @@ export default function KnowledgePage() {
 
           {/* 文档原文 */}
           {openKey && (
-            <div className="mt-3 animate-fade-up rounded-2xl bg-white/85 p-3 shadow-bubble hairline md:p-4">
+            <div className="mt-3 animate-fade-up rounded-2xl bg-paper-2 p-3 shadow-lift md:p-4">
               {loadingDoc && (
                 <div className="space-y-2">
                   {[0, 1, 2, 3].map((i) => (
-                    <div key={i} className="h-3.5 animate-pulse rounded-full bg-slate-100" />
+                    <div key={i} className="h-3.5 animate-pulse rounded-[2px] bg-slate-100" />
                   ))}
                 </div>
               )}
@@ -319,7 +321,7 @@ export default function KnowledgePage() {
                     <div className="flex shrink-0 items-center gap-1.5">
                       <button
                         onClick={() => void downloadDoc(doc.dataset, doc.file)}
-                        className="press rounded-full bg-slate-900 px-2.5 py-1 text-[11.5px] font-medium text-white hover:bg-slate-800"
+                        className="press rounded-[2px] bg-accent px-2.5 py-1 text-[11.5px] font-medium text-accent-ink hover:bg-accent-hi"
                       >
                         下载原文件
                       </button>
@@ -328,14 +330,14 @@ export default function KnowledgePage() {
                           setOpenKey(null);
                           setDoc(null);
                         }}
-                        className="press rounded-full bg-slate-100 px-2.5 py-1 text-[11.5px] font-medium text-slate-600 hover:bg-slate-200"
+                        className="press rounded-[2px] bg-slate-100 px-2.5 py-1 text-[11.5px] font-medium text-slate-600 hover:bg-slate-200"
                       >
                         收起
                       </button>
                     </div>
                   </div>
 
-                  <div className="nice-scroll mt-3 max-h-[52vh] overflow-y-auto rounded-xl bg-white/70 p-3 hairline">
+                  <div className="nice-scroll mt-3 max-h-[52vh] overflow-y-auto rounded-xl bg-paper-2 p-3 hairline">
                     {doc.format === 'MD' ? (
                       <div className="md-body">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{doc.content}</ReactMarkdown>
@@ -367,7 +369,7 @@ export default function KnowledgePage() {
 
 function MiniStat({ label, value }: { label: string; value?: number }) {
   return (
-    <div className="rounded-[20px] bg-white/72 px-4 py-3 shadow-bubble hairline backdrop-blur-xl">
+    <div className="rounded-[2px] bg-paper-2 px-4 py-3 shadow-lift">
       <div className="text-[11.5px] font-medium text-slate-500">{label}</div>
       <div className="mt-1 text-[22px] font-semibold leading-none tabular-nums tracking-tight-ios text-slate-900">
         {value == null ? '—' : value.toLocaleString()}
