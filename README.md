@@ -6,12 +6,6 @@
 
 ![stack](https://img.shields.io/badge/React-18-149ECA) ![stack](https://img.shields.io/badge/Next.js-14-000000) ![stack](https://img.shields.io/badge/FastAPI-0.162-009688) ![stack](https://img.shields.io/badge/LangGraph-1.2-1C3C3C) ![stack](https://img.shields.io/badge/pgvector-0.8-336791)
 
-## 界面预览
-
-| 智能客服：单输入框跨库问答，回答带章节与来源卡片 | 系统监控：依赖健康、Token 消耗、最近执行轨迹 |
-| --- | --- |
-| <img src="docs/screenshots/chat.png" width="520" /> | <img src="docs/screenshots/monitor.png" width="520" /> |
-
 ## 这个项目解决什么问题
 
 企业做客服智能化，常见做法是接一个开源问答平台，把文档丢进去，然后被三个问题卡住：
