@@ -102,73 +102,58 @@ export default function AppShell({
     href === '/' ? pathname === '/' : pathname.startsWith(href);
 
   return (
-    <div className="relative flex h-[100dvh] w-full overflow-hidden bg-canvas">
-      {/* 全站氛围背景：极光光斑 + 顶部点阵 */}
+    <div className="relative flex h-[100dvh] w-full overflow-hidden bg-paper">
+      {/* 全站底材：纸面 + 极淡点阵 */}
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="ambient-canvas absolute inset-0" />
-        <div className="dot-grid absolute inset-0 opacity-70" />
-        <div className="aurora-blob aura-indigo -left-56 -top-64 h-[620px] w-[620px] animate-float-slow" />
-        <div className="aurora-blob aura-cyan -right-44 top-1/3 h-[540px] w-[540px] animate-float-slow [animation-delay:-7s]" />
-        <div className="aurora-blob aura-pink bottom-[-280px] left-1/3 h-[520px] w-[520px] animate-float-slow [animation-delay:-12s]" />
+        <div className="absolute inset-0 bg-paper" />
+        <div className="dot-grid absolute inset-0 opacity-40" />
       </div>
 
       {/* 桌面端侧边导航 */}
-      <aside className="relative z-20 hidden w-[248px] shrink-0 flex-col border-r border-white/60 bg-white/50 backdrop-blur-2xl md:flex">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-gradient-to-b from-white/75 to-transparent"
-        />
+      <aside className="relative z-20 hidden w-[248px] shrink-0 flex-col border-r border-rule bg-paper-2 md:flex">
         <Link href="/" className="relative flex items-center gap-3 px-5 pb-5 pt-6">
-          <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 via-indigo-500 to-violet-500 text-[17px] font-semibold text-white shadow-[0_12px_26px_-10px_rgba(99,102,241,0.9)]">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[7px] bg-graphite font-display text-[16px] font-semibold text-graphite-ink">
             Y
-            <span className="absolute -inset-1 -z-10 animate-breathe rounded-2xl bg-gradient-to-br from-brand-400/70 to-fuchsia-400/60 blur-lg" />
           </div>
           <div className="min-w-0">
-            <div className="whitespace-nowrap text-[13.5px] font-semibold tracking-tight-ios text-slate-900">
+            <div className="whitespace-nowrap font-display text-[13.5px] font-semibold text-ink">
               AnswerY智能客服中台
             </div>
-            <div className="mt-0.5 text-[11.5px] text-slate-500">
-              Knowledge Desk · 自建 RAG Agent
-            </div>
+            <div className="mt-0.5 text-[11px] text-ink-muted">Knowledge Desk · 自建 RAG Agent</div>
           </div>
         </Link>
 
-        <div className="relative px-5 pb-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-          Workspace
-        </div>
+        <div className="relative px-5 pb-2 text-[10.5px] font-medium text-ink-muted">工作区</div>
 
-        <nav className="relative flex-1 space-y-1.5 px-3 pt-1">
+        <nav className="relative flex-1 space-y-1 px-3 pt-1">
           {NAV_ITEMS.map((item) => {
             const active = isActive(item.href);
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`press group relative flex items-center gap-2.5 rounded-2xl px-2.5 py-2 text-[13px] font-medium transition ${
+                className={`group relative flex items-center gap-2.5 rounded-[6px] border px-2.5 py-2 text-[13px] font-medium transition ${
                   active
-                    ? 'bg-white text-slate-900 shadow-bubble hairline'
-                    : 'text-slate-600 hover:bg-white/55 hover:text-slate-900'
+                    ? 'border-rule-2 bg-paper text-ink'
+                    : 'border-transparent text-ink-2 hover:bg-paper hover:text-ink'
                 }`}
               >
                 {active && (
                   <span
                     aria-hidden
-                    className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-gradient-to-b from-brand-500 to-violet-500"
+                    className="absolute inset-y-1.5 left-0 w-[2px] rounded-r-[2px] bg-accent"
                   />
                 )}
                 <span
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition ${
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[5px] border transition ${
                     active
-                      ? 'bg-gradient-to-br from-brand-500 to-violet-500 text-white shadow-[0_8px_18px_-10px_rgba(99,102,241,0.9)]'
-                      : 'bg-white/60 text-slate-500 hairline group-hover:bg-white group-hover:text-slate-700'
+                      ? 'border-transparent text-accent'
+                      : 'border-rule bg-paper text-ink-muted group-hover:text-ink-2'
                   }`}
                 >
                   <NavIcon>{item.icon}</NavIcon>
                 </span>
                 {item.label}
-                {active && (
-                  <span className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" />
-                )}
               </Link>
             );
           })}
@@ -177,31 +162,23 @@ export default function AppShell({
         <AccountBox />
 
         <div className="relative px-4 pb-5">
-          <div className="rounded-2xl border border-white/70 bg-white/60 p-3.5 backdrop-blur-xl">
+          <div className="cut p-3.5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-slate-500">平台状态</span>
-              <span
-                className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10.5px] font-medium ${
-                  online === null
-                    ? 'bg-slate-100 text-slate-500'
-                    : online
-                      ? 'bg-emerald-50 text-emerald-600'
-                      : 'bg-rose-50 text-rose-500'
-                }`}
-              >
+              <span className="text-[11px] font-medium text-ink-muted">平台状态</span>
+              <span className="inline-flex items-center gap-1.5 text-[10.5px] font-medium text-ink-2">
                 <span
                   className={`h-1.5 w-1.5 rounded-full ${
                     online === null
-                      ? 'bg-slate-300'
+                      ? 'bg-ink-muted'
                       : online
-                        ? 'live-dot bg-emerald-500'
-                        : 'bg-rose-400'
+                        ? 'live-dot bg-emerald-600'
+                        : 'bg-rose-500'
                   }`}
                 />
                 {online === null ? '检测中' : online ? '正常' : '离线'}
               </span>
             </div>
-            <div className="mt-2 text-[11px] leading-4 text-slate-500">
+            <div className="mt-2 font-mono text-[10.5px] leading-4 text-ink-muted">
               React · FastAPI · LangGraph
               <br />
               演示数据均为虚构
@@ -223,22 +200,20 @@ export default function AppShell({
         </main>
 
         {/* 移动端底部 Tab */}
-        <nav className="fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t border-white/70 bg-white/80 px-2 pb-safe pt-1.5 backdrop-blur-2xl md:hidden">
+        <nav className="fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t border-rule bg-paper px-2 pb-safe pt-1.5 md:hidden">
           {NAV_ITEMS.map((item) => {
             const active = isActive(item.href);
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex flex-1 flex-col items-center gap-1 rounded-xl py-1 text-[10.5px] font-medium transition ${
-                  active ? 'text-brand-600' : 'text-slate-500'
+                className={`flex flex-1 flex-col items-center gap-1 py-1 text-[10.5px] font-medium transition ${
+                  active ? 'text-accent-deep' : 'text-ink-muted'
                 }`}
               >
                 <span
-                  className={`flex h-8 w-9 items-center justify-center rounded-xl transition ${
-                    active
-                      ? 'bg-gradient-to-br from-brand-500 to-violet-500 text-white shadow-[0_8px_18px_-10px_rgba(99,102,241,0.9)]'
-                      : 'text-slate-500'
+                  className={`flex h-7 w-8 items-center justify-center rounded-[5px] border ${
+                    active ? 'border-transparent text-accent' : 'border-rule text-ink-muted'
                   }`}
                 >
                   <NavIcon>{item.icon}</NavIcon>
@@ -273,10 +248,10 @@ function AccountBox() {
       <div className="relative px-4 pb-2">
         <Link
           href="/login"
-          className="press flex items-center justify-between rounded-2xl border border-white/70 bg-white/60 px-3 py-2.5 text-[12px] font-medium text-slate-600 backdrop-blur-xl transition hover:bg-white/80"
+          className="flex items-center justify-between rounded-[6px] border border-rule-2 bg-paper px-3 py-2.5 text-[12px] font-medium text-ink-2 transition hover:bg-paper-3 hover:text-ink"
         >
           管理员登录
-          <span className="text-[11px] text-slate-400">→</span>
+          <span className="text-[11px] text-ink-muted">→</span>
         </Link>
       </div>
     );
@@ -285,14 +260,14 @@ function AccountBox() {
   const isAdmin = user.role === 'admin';
   return (
     <div className="relative px-4 pb-2">
-      <div className="rounded-2xl border border-white/70 bg-white/60 px-3 py-2.5 backdrop-blur-xl">
+      <div className="cut px-3 py-2.5">
         <div className="flex items-center gap-2">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-violet-500 text-[11px] font-semibold text-white">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[5px] bg-graphite text-[11px] font-semibold text-graphite-ink">
             {user.name.slice(0, 1)}
           </span>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[12px] font-medium text-slate-700">{user.name}</div>
-            <div className="truncate text-[10.5px] text-slate-400">
+            <div className="truncate text-[12px] font-medium text-ink">{user.name}</div>
+            <div className="truncate text-[10.5px] text-ink-muted">
               {isAdmin ? '管理员' : '普通用户'} · {user.phone}
             </div>
           </div>
@@ -301,7 +276,7 @@ function AccountBox() {
               logout();
               window.location.href = '/login';
             }}
-            className="press shrink-0 text-[11px] font-medium text-slate-400 transition hover:text-rose-500"
+            className="shrink-0 text-[11px] font-medium text-ink-muted transition hover:text-rose-500"
           >
             退出
           </button>

@@ -18,14 +18,48 @@ const config: Config = {
           700: '#4348c9',
         },
         ink: {
+          DEFAULT: 'var(--color-ink)',
+          2: 'var(--color-ink-2)',
+          muted: 'var(--color-ink-muted)',
           900: '#0b1220',
           700: '#334155',
           500: '#64748b',
           400: '#8a94a6',
         },
         canvas: '#f5f5f7',
+        // Cobalt 材质色（变量定义在 globals.css :root）
+        paper: {
+          DEFAULT: 'var(--color-paper)',
+          2: 'var(--color-paper-2)',
+          3: 'var(--color-paper-3)',
+        },
+        rule: {
+          DEFAULT: 'var(--color-rule)',
+          2: 'var(--color-rule-2)',
+        },
+        accent: {
+          DEFAULT: 'var(--color-accent)',
+          2: 'var(--color-accent-2)',
+          wash: 'var(--color-accent-wash)',
+          deep: 'var(--color-accent-deep)',
+        },
+        graphite: {
+          DEFAULT: 'var(--color-graphite)',
+          2: 'var(--color-graphite-2)',
+          ink: 'var(--color-graphite-ink)',
+          muted: 'var(--color-graphite-muted)',
+        },
       },
       fontFamily: {
+        display: [
+          '"Segoe UI Variable Display"',
+          '"SF Pro Display"',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          '"PingFang SC"',
+          '"Microsoft YaHei"',
+          'sans-serif',
+        ],
         sans: [
           '-apple-system',
           'BlinkMacSystemFont',

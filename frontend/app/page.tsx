@@ -60,127 +60,85 @@ export default function DashboardPage() {
     [],
   );
 
-  const runningApps = APPS.filter((a) => a.status === 'running');
-
   return (
     <AppShell>
       <div className="mx-auto w-full max-w-[1180px]">
         {/* ===== Hero ===== */}
-        <header className="hero-night relative animate-fade-up overflow-hidden rounded-[30px] px-5 pb-6 pt-6 text-white shadow-night md:px-8 md:pb-8 md:pt-9">
-          <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-            <div className="dot-grid-dark absolute inset-0 opacity-60" />
-            <div className="aurora-blob aura-indigo -left-28 -top-40 h-[420px] w-[420px] animate-float-slow" />
-            <div className="aurora-blob aura-pink -right-24 top-6 h-[360px] w-[360px] animate-float-slow [animation-delay:-9s]" />
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/45 to-transparent" />
-          </div>
+        <header className="cut relative animate-fade-up overflow-hidden px-5 pt-6 md:px-9 md:pt-8">
+          <div aria-hidden className="glyph-field pointer-events-none absolute inset-y-0 right-0 w-1/2" />
 
           <div className="relative flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-[560px]">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11.5px] font-medium text-white/85 backdrop-blur">
-                  <span className="live-dot h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  自建 RAG · 可溯源 · 可审批 · 可回放
+              <div className="flex flex-wrap items-center gap-2.5 text-[11.5px] text-ink-muted">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-[1px] bg-accent" />
+                  AnswerY智能客服中台
                 </span>
-                <span className="text-[11.5px] text-white/45">{today}</span>
+                <span className="h-px w-6 bg-rule-2" aria-hidden />
+                <span className="font-mono tabular-nums">{today}</span>
               </div>
 
-              <h1 className="mt-4 text-[28px] font-semibold leading-[1.15] tracking-tight-ios md:text-[41px]">
+              <h1 className="mt-4 font-display text-[29px] font-semibold leading-[1.06] text-ink md:text-[42px]">
                 答案有出处，
                 <br className="hidden sm:block" />
-                <span className="text-gradient-aurora">动作有审批，过程可回放</span>
+                动作有审批，过程可回放
               </h1>
 
-              <p className="mt-3.5 max-w-[460px] text-[13px] leading-relaxed text-white/60 md:text-[14px]">
-                自建 RAG 与 LangGraph Agent：每条结论都能翻到文档编号与章节，建工单等写操作先经人工确认，每轮对话落库可回放，不依赖第三方编排平台。
+              <p className="mt-3.5 max-w-[470px] text-[13px] leading-relaxed text-ink-2 md:text-[14px]">
+                自建 RAG 与 LangGraph Agent：每条结论都能翻到文档编号与章节，建工单等写操作先经人工确认，每轮对话落库可回放。
               </p>
 
               <div className="mt-6 flex flex-wrap items-center gap-2.5">
-                <Link
-                  href="/apps"
-                  className="press inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-900 shadow-[0_16px_36px_-16px_rgba(255,255,255,0.7)] hover:bg-slate-100"
-                >
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                <Link href="/apps" className="key key--primary">
                   进入智能客服
                   <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
                     <path d="M7.22 4.22a.75.75 0 011.06 0l5.25 5.25a.75.75 0 010 1.06l-5.25 5.25a.75.75 0 11-1.06-1.06L11.94 10 7.22 5.28a.75.75 0 010-1.06z" />
                   </svg>
                 </Link>
-                <Link
-                  href="/knowledge"
-                  className="press inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/5 px-4 py-2.5 text-[13px] font-medium text-white/80 backdrop-blur transition hover:border-white/30 hover:bg-white/10 hover:text-white"
-                >
+                <Link href="/knowledge" className="key">
                   查看知识库
                 </Link>
               </div>
             </div>
 
-            {/* 桌面端：运行中应用展示 */}
-            <div className="relative hidden w-[318px] shrink-0 lg:block">
-              <div className="relative rounded-[26px] border border-white/15 bg-white/[0.07] p-4 backdrop-blur-xl">
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-[11.5px] font-medium text-white/70">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-md bg-white/10">
-                      <svg viewBox="0 0 24 24" fill="currentColor" className="h-3 w-3">
-                        <path d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h6v6h-6v-6z" />
-                      </svg>
-                    </span>
-                    覆盖场景
-                  </span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/10 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-emerald-300">
-                    <span className="live-dot h-1 w-1 rounded-full bg-emerald-400" />
-                    LIVE
-                  </span>
-                </div>
-
-                <div className="mt-3 space-y-2">
-                  {runningApps.slice(0, 3).map((app) => (
-                    <div
-                      key={app.id}
-                      className="flex items-center gap-2.5 rounded-2xl border border-white/10 bg-white/[0.05] px-2.5 py-2 transition hover:border-white/20 hover:bg-white/[0.09]"
-                    >
-                      <span
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${app.gradient} ${
-                          app.iconClass ?? 'text-white'
-                        }`}
-                      >
-                        {app.icon}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-[12.5px] font-medium text-white/90">
-                          {app.name}
-                        </div>
-                        <div className="truncate text-[10.5px] text-white/40">
-                          {app.tags.join(' · ')}
-                        </div>
-                      </div>
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_8px_2px_rgba(52,211,153,0.5)]" />
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3">
-                  <div className="flex -space-x-1.5">
-                    {runningApps.slice(0, 4).map((a) => (
-                      <span
-                        key={a.id}
-                        className={`flex h-6 w-6 items-center justify-center rounded-full border-2 border-[#101a33] bg-gradient-to-br ${a.gradient} text-[10px] font-semibold ${
-                          a.iconClass ?? 'text-white'
-                        }`}
-                        title={a.name}
-                      >
-                        {a.name.slice(0, 1)}
-                      </span>
-                    ))}
-                  </div>
-                  <Link
-                    href="/apps"
-                    className="text-[11.5px] font-medium text-white/55 transition hover:text-white"
-                  >
-                    工作台 →
-                  </Link>
-                </div>
+            {/* 桌面端：运行参数与规格 */}
+            <div className="relative hidden w-[268px] shrink-0 lg:block">
+              <div className="flex items-baseline justify-between border-b border-rule pb-2">
+                <span className="text-[11.5px] font-medium text-ink-2">系统</span>
+                <span className="flex items-center gap-1.5 text-[11px] text-ink-muted">
+                  <span className="live-dot h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                  运行中
+                </span>
               </div>
+              <dl className="divide-y divide-rule text-[12px]">
+                {[
+                  ['知识库', '16 份文档 / 162 切片'],
+                  ['检索', 'HNSW + BM25 + RRF'],
+                  ['工具', '6 个 / 写操作审批'],
+                  ['回放', 'chat_trace 逐轮落库'],
+                ].map(([k, v]) => (
+                  <div key={k} className="flex items-baseline justify-between gap-3 py-2">
+                    <dt className="shrink-0 text-ink-muted">{k}</dt>
+                    <dd className="truncate text-right font-mono text-[11.5px] tabular-nums text-ink-2">
+                      {v}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+              <Link
+                href="/monitor"
+                className="mt-2 inline-flex items-center gap-1 text-[11.5px] font-medium text-accent-deep hover:underline"
+              >
+                运行监控 →
+              </Link>
             </div>
+          </div>
+
+          <div className="hero-graphite relative mt-7 -mx-5 flex items-center justify-between px-5 py-2.5 font-mono text-[10.5px] md:-mx-9 md:px-9">
+            <span className="truncate">
+              pgvector 0.8 / HNSW · bge-m3 1024d · BM25 + RRF · bge-reranker
+            </span>
+            <span className="hidden shrink-0 pl-4 text-accent-2 sm:block">SSE · streaming</span>
           </div>
         </header>
 
