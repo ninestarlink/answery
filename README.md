@@ -16,6 +16,35 @@
 | --- | --- |
 | ![带出处的回答](docs/screenshots/03-answer.png) | ![运行监控](docs/screenshots/04-monitor.png) |
 
+## 评测中台：让「回答变好」有数字依据
+
+大多数 RAG 项目停在「能问答、能引用」，但说不清改完提示词、切片或 rerank 参数之后**到底有没有变好**。这里补了一层可重复的检索评测：
+
+- **40 条金标用例 / 10 类场景**：商品、物流、售后、营销、尺码，以及企业制度、信息安全、客服管理、人力资源、合规；每条都绑定「必须命中的文档」。
+- **一次跑批 = 一次可对比的回归**：复用生产检索链路（embedding + BM25 + RRF + rerank），逐条记录首中位次、TopK 来源、耗时与降级原因。
+- **指标可解释**：`Hit@5`（期望文档是否进入 Top5 来源）、`MRR`（首个正确来源的平均倒数排名）、`P95 延迟`、`降级检索数`。
+- **质量门禁**：`Hit@5 ≥ 85%`、`MRR ≥ 0.70`、降级为 0 才显示 PASS；低于阈值需要先复盘 bad case，再改检索。
+- **可下钻**：每条用例能看到期望来源、实际 Top1、命中位次和完整 TopK 文档，不用猜。
+
+![评测中台](docs/screenshots/05-eval.png)
+
+最近一次真实运行（`run #2`，本机 MySQL + pgvector + 硅基流动 rerank）：
+
+| 指标 | 结果 | 说明 |
+| --- | --- | --- |
+| 用例 / 分类 | 40 / 10 | 电商 26 条 + 企业 14 条 |
+| Hit@5 | **100.0%**（40/40） | 期望文档全部进入 Top5 来源 |
+| MRR | **0.950** | 多数用例首个来源即命中 |
+| 平均 / P95 延迟 | 1495 / 1634 ms | 含 embedding + 双路召回 + rerank |
+| 降级检索 | 0 | 无 embedding / rerank 降级 |
+
+跑批在后台执行、前端轮询进度，单条结果边跑边落库；接口为 `POST /api/admin/eval/runs`、`GET /api/admin/eval/runs/{id}`、`GET /api/admin/eval/overview`，全部要求管理员 Token。复现：
+
+```bash
+cd backend
+$env:PYTHONPATH="."; python scripts/seed_eval.py --run
+```
+
 ## 这个项目解决什么问题
 
 企业做客服智能化，常见做法是接一个开源问答平台，把文档丢进去，然后被三个问题卡住：
@@ -82,11 +111,19 @@ curl -X POST http://127.0.0.1:8000/api/sandbox/run \
 - **额度保护**：单会话 10 分钟 30 轮、全站每天 1000 轮，Redis 故障时放行不影响可用性
 - **敏感信息**：`.env`、日志、缓存全部 gitignore；演示数据均为虚构
 
+### 六、评测中台
+
+- **金标数据集**：`eval_dataset / eval_case / eval_run / eval_result` 四张表，40 条用例、10 类场景，电商与企业制度共用同一套检索链路
+- **异步跑批**：后台执行，逐条写入结果；前端轮询 `progress`，可随时切走页面
+- **回归对比**：运行历史保留每次的 Hit@5 / MRR / P95，与上一次直接比 delta
+- **质量门禁**：阈值 85% / 0.70 / 零降级，前端显示 PASS 或 REVIEW
+- **可下钻**：每条用例显示期望文档、实际 Top1、首中位次、耗时和完整 TopK 来源，便于 bad case 复盘
+
 ## 架构
 
 ```text
 ┌────────────────────────────── 浏览器（Next.js 14 / React 18）──────────────────────────────┐
-│  统一工作台：单输入框混合问答 · 审批卡片 · 来源卡片 · 知识库管理 · 运行监控                  │
+│  统一工作台：单输入框混合问答 · 审批卡片 · 来源卡片 · 知识库管理 · 运行监控 · 评测中台        │
 └───────────────┬──────────────────────────────────────────────────────────────────────────────┘
                 │ 同源 /api（rewrites 转发，避免跨域）
 ┌───────────────▼──────────────────────────── FastAPI ──────────────────────────────────────────┐
@@ -96,6 +133,7 @@ curl -X POST http://127.0.0.1:8000/api/sandbox/run \
 │ 检索层   解析 → 父子切片 → embedding → pgvector+BM25 → RRF → rerank → 证据链                 │
 │ 工具层   商品 / 订单 / 政策 / 优惠券 / 工单（Redis 幂等）                                     │
 │ 记账层   chat_history（Token 成本） · chat_trace（执行轨迹）                                  │
+│ 评测层   eval_case（金标） · eval_run（回归指标） · eval_result（逐条下钻）                    │
 └──────────┬───────────────────────┬──────────────────────────────┬───────────────────────────┘
            │                       │                              │
       MySQL 8                 Redis 7                    PostgreSQL + pgvector
@@ -110,16 +148,17 @@ curl -X POST http://127.0.0.1:8000/api/sandbox/run \
 │   ├── app/
 │   │   ├── agent/          # LangGraph 图、工具、提示词
 │   │   ├── rag/            # 解析、切片、embedding、向量库、BM25、检索编排
-│   │   ├── routers/        # chat / rag / admin / auth / tickets / tools
+│   │   ├── routers/        # chat / rag / admin / eval / auth / tickets / tools
+│   │   ├── evaluation.py   # 金标用例、跑批与指标汇总
 │   │   ├── config.py       # 环境变量
 │   │   ├── models.py       # ORM
 │   │   ├── sandbox.py      # Docker 预热池与隔离执行
 │   │   └── main.py         # 应用入口与健康检查
 │   ├── db/                 # 建表与种子数据（首次启动自动执行）
-│   ├── scripts/            # 冒烟测试、检索评测、沙箱验收
+│   ├── scripts/            # 冒烟测试、检索评测、评测中台初始化、沙箱验收
 │   └── docker-compose.yml  # MySQL / Redis / pgvector
 ├── frontend/               # Next.js 14 App Router
-│   ├── app/                # 页面：工作台、知识库、监控、登录
+│   ├── app/                # 页面：工作台、知识库、监控、评测中台、登录
 │   ├── components/         # 对话、消息、审批卡、来源卡、侧栏
 │   └── lib/                # SSE 客户端、鉴权、会话 store
 ├── enterprise_kb/          # 企业制度知识库（11 份虚构文档：手册/报销/采购/安全/合规等）

@@ -42,6 +42,10 @@ ALLOWED_TABLES: dict[str, str] = {
     "chat_history": "会话记录与 Token 记账",
     "chat_trace": "对话执行轨迹（检索命中 / 工具 / 中断 / 延迟）",
     "tickets": "IT 工单（规则引擎自动生成）",
+    "eval_dataset": "评测数据集",
+    "eval_case": "评测金标用例",
+    "eval_run": "评测运行记录",
+    "eval_result": "评测用例结果",
 }
 
 # 知识库源文件（与 pgvector 索引同源）

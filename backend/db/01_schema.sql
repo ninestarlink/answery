@@ -238,4 +238,74 @@ CREATE TABLE tickets (
   KEY idx_tickets_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='IT 工单（演示数据）';
 
+-- -------------------------------------------------------------
+-- 评测中台：数据集、金标用例、运行记录与逐条结果
+-- -------------------------------------------------------------
+CREATE TABLE eval_dataset (
+  id          INT          NOT NULL AUTO_INCREMENT,
+  code        VARCHAR(32)  NOT NULL,
+  name        VARCHAR(64)  NOT NULL,
+  description VARCHAR(255) DEFAULT NULL,
+  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_eval_dataset_code (code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='评测数据集';
+
+CREATE TABLE eval_case (
+  id                BIGINT       NOT NULL AUTO_INCREMENT,
+  dataset_id        INT          NOT NULL,
+  case_no           VARCHAR(16)  NOT NULL COMMENT '数据集内编号，如 E01',
+  question          VARCHAR(255) NOT NULL,
+  kb_id             VARCHAR(16)  NOT NULL COMMENT 'shop/enterprise',
+  expected_doc      VARCHAR(128) NOT NULL COMMENT '期望命中的文档名',
+  expected_keywords VARCHAR(255) DEFAULT NULL COMMENT '逗号分隔的答案要点',
+  category          VARCHAR(32)  NOT NULL,
+  difficulty        VARCHAR(8)   NOT NULL DEFAULT 'normal',
+  created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_eval_case_dataset (dataset_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='评测金标用例';
+
+CREATE TABLE eval_run (
+  id              BIGINT      NOT NULL AUTO_INCREMENT,
+  dataset_id      INT         NOT NULL,
+  status          VARCHAR(16) NOT NULL DEFAULT 'running' COMMENT 'running/completed/failed',
+  engine          VARCHAR(32) NOT NULL DEFAULT 'hybrid+rerank',
+  top_k           INT         NOT NULL DEFAULT 5,
+  case_count      INT         NOT NULL DEFAULT 0,
+  hit_count       INT         NOT NULL DEFAULT 0,
+  hit_rate        FLOAT       NOT NULL DEFAULT 0,
+  mrr             FLOAT       NOT NULL DEFAULT 0,
+  avg_latency_ms  INT         NOT NULL DEFAULT 0,
+  p95_latency_ms  INT         NOT NULL DEFAULT 0,
+  degraded_count  INT         NOT NULL DEFAULT 0,
+  note            VARCHAR(128) DEFAULT NULL,
+  error           VARCHAR(255) DEFAULT NULL,
+  started_at      DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  finished_at     DATETIME    DEFAULT NULL,
+  PRIMARY KEY (id),
+  KEY idx_eval_run_dataset (dataset_id),
+  KEY idx_eval_run_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='评测运行记录';
+
+CREATE TABLE eval_result (
+  id            BIGINT       NOT NULL AUTO_INCREMENT,
+  run_id        BIGINT       NOT NULL,
+  case_id       BIGINT       NOT NULL,
+  case_no       VARCHAR(16)  NOT NULL,
+  question      VARCHAR(255) NOT NULL,
+  kb_id         VARCHAR(16)  NOT NULL,
+  expected_doc  VARCHAR(128) NOT NULL,
+  retrieved_doc VARCHAR(128) DEFAULT NULL,
+  rank          INT          NOT NULL DEFAULT 0 COMMENT '期望文档首次位次，0=未命中',
+  hit           TINYINT      NOT NULL DEFAULT 0,
+  latency_ms    INT          NOT NULL DEFAULT 0,
+  degraded      VARCHAR(128) DEFAULT NULL,
+  top_docs      TEXT         DEFAULT NULL,
+  created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_eval_result_run (run_id),
+  KEY idx_eval_result_case (case_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='评测用例结果';
+
 SET FOREIGN_KEY_CHECKS = 1;

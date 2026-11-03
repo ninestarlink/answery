@@ -7,7 +7,18 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import JSON, BigInteger, Date, DateTime, Integer, Numeric, String, Text, func
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    Date,
+    DateTime,
+    Float,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .database import Base
@@ -190,6 +201,83 @@ class ChatTrace(Base):
     latency_ms: Mapped[int] = mapped_column(Integer, default=0)
     total_tokens: Mapped[int] = mapped_column(Integer, default=0)
     error: Mapped[str | None] = mapped_column(String(255), default=None)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class EvalDataset(Base):
+    """评测数据集：一组金标用例，可按版本迭代。"""
+
+    __tablename__ = "eval_dataset"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String(32), unique=True)
+    name: Mapped[str] = mapped_column(String(64))
+    description: Mapped[str | None] = mapped_column(String(255), default=None)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class EvalCase(Base):
+    """单条金标用例：问题 + 期望命中的文档，用于检索质量回归。"""
+
+    __tablename__ = "eval_case"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    dataset_id: Mapped[int] = mapped_column(Integer, index=True)
+    case_no: Mapped[str] = mapped_column(String(16), comment="数据集内编号，如 E01")
+    question: Mapped[str] = mapped_column(String(255))
+    kb_id: Mapped[str] = mapped_column(String(16), comment="shop / enterprise")
+    expected_doc: Mapped[str] = mapped_column(String(128), comment="期望命中的文档名")
+    expected_keywords: Mapped[str | None] = mapped_column(
+        String(255), default=None, comment="逗号分隔的答案要点，供人工复盘"
+    )
+    category: Mapped[str] = mapped_column(String(32))
+    difficulty: Mapped[str] = mapped_column(String(8), default="normal")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class EvalRun(Base):
+    """一次批量评测的汇总结果，前端按 run 对比新旧版本。"""
+
+    __tablename__ = "eval_run"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    dataset_id: Mapped[int] = mapped_column(Integer, index=True)
+    status: Mapped[str] = mapped_column(
+        String(16), default="running", comment="running/completed/failed"
+    )
+    engine: Mapped[str] = mapped_column(String(32), default="hybrid+rerank")
+    top_k: Mapped[int] = mapped_column(Integer, default=5)
+    case_count: Mapped[int] = mapped_column(Integer, default=0)
+    hit_count: Mapped[int] = mapped_column(Integer, default=0)
+    hit_rate: Mapped[float] = mapped_column(Float, default=0.0)
+    mrr: Mapped[float] = mapped_column(Float, default=0.0)
+    avg_latency_ms: Mapped[int] = mapped_column(Integer, default=0)
+    p95_latency_ms: Mapped[int] = mapped_column(Integer, default=0)
+    degraded_count: Mapped[int] = mapped_column(Integer, default=0)
+    note: Mapped[str | None] = mapped_column(String(128), default=None)
+    error: Mapped[str | None] = mapped_column(String(255), default=None)
+    started_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+
+
+class EvalResult(Base):
+    """单条用例的执行结果：排名、耗时、Top 文档，支持下钻复盘。"""
+
+    __tablename__ = "eval_result"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    run_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    case_id: Mapped[int] = mapped_column(BigInteger)
+    case_no: Mapped[str] = mapped_column(String(16))
+    question: Mapped[str] = mapped_column(String(255))
+    kb_id: Mapped[str] = mapped_column(String(16))
+    expected_doc: Mapped[str] = mapped_column(String(128))
+    retrieved_doc: Mapped[str | None] = mapped_column(String(128), default=None)
+    rank: Mapped[int] = mapped_column(Integer, default=0, comment="期望文档首次出现的位次，0=未命中")
+    hit: Mapped[int] = mapped_column(Integer, default=0)
+    latency_ms: Mapped[int] = mapped_column(Integer, default=0)
+    degraded: Mapped[str | None] = mapped_column(String(128), default=None)
+    top_docs: Mapped[str | None] = mapped_column(Text, default=None, comment="TopK 文档名，逗号分隔")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 

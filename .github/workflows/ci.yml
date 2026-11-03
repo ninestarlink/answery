@@ -22,6 +22,13 @@ jobs:
       - name: 编译检查
         working-directory: backend
         run: python -m compileall -q app scripts
+      - name: 评测指标回归测试
+        working-directory: backend
+        env:
+          PYTHONPATH: .
+          SECRET_KEY: ci-test
+          ZHIPU_API_KEY: ''
+        run: python -m unittest discover -s tests -v
       - name: 导入核心模块（不连数据库）
         working-directory: backend
         env:

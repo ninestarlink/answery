@@ -14,7 +14,7 @@ from sqlalchemy import text
 from .config import settings
 from .database import SessionLocal, engine, get_redis
 from .rag import store as rag_store
-from .routers import admin, auth, chat, rag, sandbox, tickets, tools
+from .routers import admin, auth, chat, eval, rag, sandbox, tickets, tools
 from . import sandbox as sandbox_service
 
 logging.basicConfig(
@@ -80,6 +80,7 @@ app.include_router(tools.router)
 app.include_router(tickets.router)
 app.include_router(rag.router)
 app.include_router(admin.router)
+app.include_router(eval.router)
 app.include_router(sandbox.router)
 
 

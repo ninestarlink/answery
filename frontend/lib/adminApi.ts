@@ -202,6 +202,95 @@ export interface TracesResponse {
   traces: ChatTraceRow[];
 }
 
+/** 评测中台：一次批量运行 */
+export interface EvalRun {
+  id: number;
+  dataset_id: number;
+  status: 'running' | 'completed' | 'failed';
+  engine: string;
+  top_k: number;
+  case_count: number;
+  hit_count: number;
+  hit_rate: number;
+  mrr: number;
+  avg_latency_ms: number;
+  p95_latency_ms: number;
+  degraded_count: number;
+  note: string | null;
+  error: string | null;
+  progress: number;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+export interface EvalDatasetInfo {
+  id: number | null;
+  code: string;
+  name: string;
+  description: string;
+  cases: number;
+  categories: number;
+}
+
+export interface EvalOverview {
+  dataset: EvalDatasetInfo;
+  latest: EvalRun | null;
+  previous: EvalRun | null;
+  running: EvalRun | null;
+  runs: EvalRun[];
+}
+
+export interface EvalCase {
+  id: number;
+  case_no: string;
+  question: string;
+  kb_id: string;
+  expected_doc: string;
+  expected_keywords: string | null;
+  category: string;
+  difficulty: string;
+}
+
+export interface EvalCaseResult {
+  case_no: string;
+  question: string;
+  kb_id: string;
+  expected_doc: string;
+  retrieved_doc: string | null;
+  rank: number;
+  hit: boolean;
+  latency_ms: number;
+  degraded: string | null;
+  top_docs: string | null;
+}
+
+export interface EvalRunDetail {
+  run: EvalRun;
+  results: EvalCaseResult[];
+}
+
+async function postJSON<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    cache: 'no-store',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (res.status === 401) {
+    memoryCache.clear();
+    clearSession();
+    redirectToLogin();
+    throw new Error('登录已过期，请重新登录');
+  }
+  if (res.status === 403) throw new Error('当前账号不是管理员，无权执行评测');
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(detail || `${res.status} ${res.statusText}`);
+  }
+  memoryCache.clear();
+  return (await res.json()) as T;
+}
+
 export const adminApi = {
   overview: () => getJSON<Overview>('/api/admin/overview'),
   tables: () => getJSON<TablesResponse>('/api/admin/db/tables', 60_000),
@@ -232,4 +321,8 @@ export const adminApi = {
   services: () => getJSON<ServicesResponse>('/api/admin/services', 0),
   traces: (limit = 20) =>
     getJSON<TracesResponse>(`/api/admin/traces?limit=${limit}`, 0),
+  evalOverview: () => getJSON<EvalOverview>('/api/admin/eval/overview', 3_000),
+  evalRun: (id: number) => getJSON<EvalRunDetail>(`/api/admin/eval/runs/${id}`, 0),
+  evalStart: (payload: { dataset_id?: number; top_k?: number; note?: string }) =>
+    postJSON<EvalRun>('/api/admin/eval/runs', payload),
 };

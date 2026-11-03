@@ -53,6 +53,14 @@ const NAV_ITEMS: NavItem[] = [
       <path d="M3 12h4l2.5-6 4 12 2.5-6h5v2h-3.8l-3.2 7.5-3.9-11.7L9.3 14H3v-2z" />
     ),
   },
+  {
+    href: '/eval',
+    label: '评测中台',
+    short: '评测',
+    icon: (
+      <path d="M4 4h16v3H4V4zm0 5.5h4v10H4V9.5zm6 0h4v10h-4V9.5zm6 0h4v10h-4V9.5z" />
+    ),
+  },
 ];
 
 function NavIcon({ children, className = '' }: { children: React.ReactNode; className?: string }) {
@@ -137,7 +145,7 @@ export default function AppShell({
 
         <div className="relative flex items-center justify-between px-5 pb-2 pt-4">
           <span className="mono-label text-[9.5px] text-muted">Workspace</span>
-          <span className="mono-label text-[9.5px] text-muted">00—04</span>
+          <span className="mono-label text-[9.5px] text-muted">00—05</span>
         </div>
 
         <nav className="relative flex-1 space-y-1.5 px-3 pt-1">
