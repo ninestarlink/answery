@@ -38,6 +38,14 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
+    href: '/wiki',
+    label: '知识网络',
+    short: 'Wiki',
+    icon: (
+      <path d="M12 3a3 3 0 110 6 3 3 0 010-6zM5 15a3 3 0 110 6 3 3 0 010-6zm14 0a3 3 0 110 6 3 3 0 010-6zM10.8 8.4l-4.1 6.3 1.7 1.1 4.1-6.3-1.7-1.1zm2.4 0l4.1 6.3-1.7 1.1-4.1-6.3 1.7-1.1z" />
+    ),
+  },
+  {
     href: '/database',
     label: '数据库',
     short: '数据',

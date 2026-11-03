@@ -4,6 +4,8 @@
 
 同一套 Agent 运行时、同一条检索链路、同一套鉴权与监控。工作台只有一个输入框——商品、订单、制度问题都能问，系统按语义判断该查文档还是调工具。
 
+其中最有辨识度的两层：**LLMWiki 关系知识层**（把文档组织成实体页 + wikilink/backlink，作为 RAG 之外的关系召回通道）与**评测中台**（48 条金标用例 + 分场景切片 + LLM 裁判，让每次改检索都有数字依据）。
+
 ![stack](https://img.shields.io/badge/React-18-149ECA) ![stack](https://img.shields.io/badge/Next.js-14-000000) ![stack](https://img.shields.io/badge/FastAPI-0.162-009688) ![stack](https://img.shields.io/badge/LangGraph-1.2-1C3C3C) ![stack](https://img.shields.io/badge/pgvector-0.8-336791)
 
 ## 界面预览
@@ -16,14 +18,29 @@
 | --- | --- |
 | ![带出处的回答](docs/screenshots/03-answer.png) | ![运行监控](docs/screenshots/04-monitor.png) |
 
+## LLMWiki：知识组织层，而不是再做一个向量库
+
+普通 RAG 把文档切成互不相干的 chunk，能召回「一段话」，但接不住「轻云 Pro 的售后按哪份政策」「这条供应商问题最终该看哪份制度」这类**需要跨一篇取值**的问题。LLMWiki 在切片之上补了一层可读的知识组织：
+
+- **实体页**：店铺商品按 `pXXXX` 章节拆成独立商品页，五份政策各成一页；企业侧每份制度一个实体页。每页带标题、摘要、原文摘录与来源文档。
+- **别名索引**：文档编号（`YC-SH-005`）、文件名（`05_客服升级SOP`）、口语叫法（「退货政策」「商品知识库」）都会归一到同一实体，用户不必说全称。
+- **有向关系**：商品 → 售后 / 配送 / 尺码政策，跑鞋之间互为「同类对比」，制度里点名的《X 办法》与文档编号自动生成「引用制度」边，另有少量业务补边（绩效 ↔ 晋升、安全 ↔ 数据合规）。反向关系自动生成 backlink。
+- **关系召回通道**：检索时先按标题 / 别名 / 摘要 BM25 命中实体页，再沿 1 跳邻居把相关制度页带出来，取这些页对应的原文章节作为**额外候选**，与原向量 / BM25 候选一起走同一次 rerank。RAG 主链路、RRF 与精排阈值不变；实体命中只给原文章节一个很小的先验加成，排序仍由精排决定。
+- **关系上下文**：把「实体摘要 + 关系路径 + 邻居摘要」压缩成一段 `【LLMWiki 关系知识】` 注入提示词，回答能说清「依据哪份制度、和哪条政策相关」。
+- **后台索引**：`wiki_pages / wiki_links` 两张表，启动时若为空则后台自动构建，不阻塞服务；管理端可一键重建，失败不影响 RAG 降级。
+
+前端「知识网络」页可直接演示：左侧实体列表与类型筛选，右侧实体页的别名、出边、入边与原文摘录，顶部搜索框跑关系检索并展示「命中 → 一跳」路径和最终上下文。
+
+管理接口（均需管理员 Token）：`GET /api/admin/wiki/overview`、`GET /api/admin/wiki/pages`、`GET /api/admin/wiki/pages/{slug}`、`GET /api/admin/wiki/search`、`GET /api/admin/wiki/graph`、`POST /api/admin/wiki/rebuild`。
+
 ## 评测中台：让「回答变好」有数字依据
 
 大多数 RAG 项目停在「能问答、能引用」，但说不清改完提示词、切片或 rerank 参数之后**到底有没有变好**。这里补了一层可重复的检索评测：
 
-- **40 条金标用例 / 10 类场景**：商品、物流、售后、营销、尺码，以及企业制度、信息安全、客服管理、人力资源、合规；每条都绑定「必须命中的文档」。
-- **一次跑批 = 一次可对比的回归**：复用生产检索链路（embedding + BM25 + RRF + rerank），逐条记录首中位次、TopK 来源、耗时与降级原因。
+- **48 条金标用例 / 11 类场景**：商品、物流、售后、营销、尺码、关系推理，以及企业制度、信息安全、客服管理、人力资源、合规；每条都绑定「必须命中的文档」。
+- **一次跑批 = 一次可对比的回归**：复用生产检索链路（embedding + BM25 + RRF + rerank + LLMWiki 关系召回），逐条记录首中位次、TopK 来源、耗时与降级原因。
 - **指标可解释**：`Hit@5`（期望文档是否进入 Top5 来源）、`MRR`（首个正确来源的平均倒数排名）、`P95 延迟`、`降级检索数`。
-- **分场景切片**：10 类场景各自计算 Hit@5 / MRR / P95，整体分数好看但某类掉分时会立刻暴露。
+- **分场景切片**：11 类场景各自计算 Hit@5 / MRR / P95，整体分数好看但某类掉分时会立刻暴露。
 - **A/B 对比**：任意两次运行互为基线，输出 `ΔHit@5`、`ΔMRR`、`ΔP95`，并列出逐条提升 / 退化用例。
 - **质量门禁**：`Hit@5 ≥ 85%`、`MRR ≥ 0.70`、降级为 0 才显示 PASS；低于阈值需要先复盘 bad case，再改检索。
 - **人工复盘 + 报告导出**：每条用例可标记「待复盘 / 已修复 / 已忽略」，状态跨 run 保留；一键导出带 BOM 的 CSV，Excel 直接打开。
@@ -34,17 +51,18 @@
 
 ![评测中台](docs/screenshots/05-eval.png)
 
-最近一次真实运行（`run #4`，本机 MySQL + pgvector + 硅基流动 rerank）：
+最近一次真实运行（`run #7`，本机 MySQL + pgvector + 硅基流动 rerank，含 LLMWiki 关系召回）：
 
 | 指标 | 结果 | 说明 |
 | --- | --- | --- |
-| 用例 / 分类 | 40 / 10 | 电商 26 条 + 企业 14 条 |
-| Hit@5 | **100.0%**（40/40） | 期望文档全部进入 Top5 来源 |
-| MRR | **0.950** | 多数用例首个来源即命中 |
-| 平均 / P95 延迟 | 1493 / 1724 ms | 含 embedding + 双路召回 + rerank |
+| 用例 / 分类 | 48 / 11 | 电商 29 条 + 企业 19 条 |
+| Hit@5 | **100.0%**（48/48） | 期望文档全部进入 Top5 来源 |
+| MRR | **0.948** | 多数用例首个来源即命中 |
+| 平均 / P95 延迟 | 1519 / 1687 ms | 含 embedding + 双路召回 + 关系召回 + 全量候选 rerank |
 | 降级检索 | 0 | 无 embedding / rerank 降级 |
-| A/B（`top1` → `top5`） | **+10.0 pp / +0.050 MRR** | 基线 run #3 为 90.0% / 0.900；4 条提升、0 条退化 |
-| 生成质量抽样 | 2/2 PASS | 裁判命中 `products` / `coupons`，忠实度与引用均正确 |
+| 关系推理切片 | **8/8 命中，MRR 0.938** | 商品 → 政策、制度 → 引用制度、绩效 → 晋升等跨文档问题 |
+| A/B（`top1` → `top5`，run #3/#4） | **+10.0 pp / +0.050 MRR** | 基线为 90.0% / 0.900；4 条提升、0 条退化 |
+| 生成质量抽样 | 2/2 PASS（run #4） | 裁判命中 `products` / `coupons`，忠实度与引用均正确 |
 
 跑批在后台执行、前端轮询进度，单条结果边跑边落库；接口为 `POST /api/admin/eval/runs`、`GET /api/admin/eval/runs/{id}`、`GET /api/admin/eval/overview`、`GET /api/admin/eval/runs/{id}/compare`、`GET /api/admin/eval/runs/{id}/export`、`POST /api/admin/eval/cases/{id}/review`、`POST /api/admin/eval/runs/{id}/judge`、`GET /api/admin/eval/runs/{id}/judgments`、`POST/PUT/DELETE /api/admin/eval/datasets/{id}/cases`、`POST /api/admin/eval/datasets/{id}/cases/import`、`GET /api/admin/eval/candidates`，全部要求管理员 Token。复现：
 
@@ -121,9 +139,9 @@ curl -X POST http://127.0.0.1:8000/api/sandbox/run \
 
 ### 六、评测中台
 
-- **金标数据集**：`eval_dataset / eval_case / eval_run / eval_result / eval_judgment / eval_case_review` 六张表，40 条用例、10 类场景，电商与企业制度共用同一套检索链路
+- **金标数据集**：`eval_dataset / eval_case / eval_run / eval_result / eval_judgment / eval_case_review` 六张表，48 条用例、11 类场景，电商与企业制度共用同一套检索链路
 - **异步跑批**：后台执行，逐条写入结果；前端轮询 `progress`，可随时切走页面
-- **分场景切片**：按 10 类场景分别汇总 Hit@5 / MRR / P95，横条直接对比基线 delta，短板一眼可见
+- **分场景切片**：按 11 类场景分别汇总 Hit@5 / MRR / P95，横条直接对比基线 delta，短板一眼可见
 - **A/B 对比**：任选历史 run 作基线，输出整体 `ΔHit@5 / ΔMRR / ΔP95` 与逐条提升 / 退化清单
 - **质量门禁**：阈值 85% / 0.70 / 零降级，前端显示 PASS 或 REVIEW
 - **生成质量评测**：抽样让模型基于检索上下文作答，裁判模型按忠实度 / 相关性 / 引用正确性打分，结果落 `eval_judgment`，失败原因直接展示
@@ -133,25 +151,35 @@ curl -X POST http://127.0.0.1:8000/api/sandbox/run \
 - **报告导出**：CSV 带 BOM（UTF-8），含场景、位次、耗时、复盘状态与 TopK 来源，可直接进 Excel 或周报
 - **可下钻**：每条用例显示期望文档、实际 Top1、首中位次、耗时和完整 TopK 来源，便于 bad case 复盘
 
+### 七、LLMWiki 关系知识层
+
+- **实体页而不是纯切片**：商品按 `pXXXX` 独立成页、政策与制度各自成页，页面带摘要、原文摘录、来源文档与别名
+- **别名归一**：文档编号、文件名、口语叫法（「退货政策」「商品知识库」）都指向同一实体，问法不必和文件标题一致
+- **wikilink / backlink**：商品 → 售后 / 配送 / 尺码，跑鞋同类对比，制度引用制度（《X 办法》、`YC-XXX-###`），业务补边（绩效 ↔ 晋升、安全 ↔ 数据合规）
+- **关系召回**：实体命中 → 1 跳邻居 → 取对应原文章节作为额外候选，与原向量 / BM25 候选一起 rerank；关系上下文以 `【LLMWiki 关系知识】` 注入提示词
+- **可运维**：`wiki_pages / wiki_links` 自动建表，启动后台自检构建，管理端一键重建；「知识网络」页可视化实体、别名、出边与入边
+
 ## 架构
 
 ```text
 ┌────────────────────────────── 浏览器（Next.js 14 / React 18）──────────────────────────────┐
-│  统一工作台：单输入框混合问答 · 审批卡片 · 来源卡片 · 知识库管理 · 运行监控 · 评测中台        │
+│  统一工作台：单输入框混合问答 · 审批卡片 · 来源卡片 · 知识库 · 知识网络 · 运行监控 · 评测中台 │
 └───────────────┬──────────────────────────────────────────────────────────────────────────────┘
                 │ 同源 /api（rewrites 转发，避免跨域）
 ┌───────────────▼──────────────────────────── FastAPI ──────────────────────────────────────────┐
 │ 鉴权层   JWT + bcrypt + RBAC                       SSE 层   统一事件帧（status/message/…）   │
 │ ─────────────────────────────────────────────────────────────────────────────────────────── │
 │ 编排层   LangGraph：route → agent ⇄ tools → approval(interrupt) → resume                      │
-│ 检索层   解析 → 父子切片 → embedding → pgvector+BM25 → RRF → rerank → 证据链                 │
+│ 检索层   解析 → 父子切片 → embedding → pgvector+BM25 → RRF → LLMWiki 关系召回 → rerank → 证据链 │
+│ 知识组织 wiki_pages（实体页 / 别名） · wiki_links（wikilink / backlink） → 关系上下文         │
 │ 工具层   商品 / 订单 / 政策 / 优惠券 / 工单（Redis 幂等）                                     │
 │ 记账层   chat_history（Token 成本） · chat_trace（执行轨迹）                                  │
 │ 评测层   eval_case（金标） · eval_run（回归） · eval_result（下钻） · eval_judgment（裁判） · eval_case_review（复盘） │
 └──────────┬───────────────────────┬──────────────────────────────┬───────────────────────────┘
            │                       │                              │
       MySQL 8                 Redis 7                    PostgreSQL + pgvector
-   业务库/会话/轨迹      历史上下文/额度/幂等        知识库向量（独立实例，端口 5433）
+   业务库/会话/轨迹      历史上下文/额度/幂等      知识库向量（独立实例，端口 5433）
+                                                  + wiki_pages / wiki_links
 ```
 
 ## 目录结构
@@ -161,8 +189,8 @@ curl -X POST http://127.0.0.1:8000/api/sandbox/run \
 ├── backend/
 │   ├── app/
 │   │   ├── agent/          # LangGraph 图、工具、提示词
-│   │   ├── rag/            # 解析、切片、embedding、向量库、BM25、检索编排
-│   │   ├── routers/        # chat / rag / admin / eval / auth / tickets / tools
+│   │   ├── rag/            # 解析、切片、embedding、向量库、BM25、LLMWiki、检索编排
+│   │   ├── routers/        # chat / rag / wiki / admin / eval / auth / tickets / tools
 │   │   ├── evaluation.py   # 金标用例、跑批与指标汇总
 │   │   ├── eval_judge.py   # 生成质量抽样与 LLM 裁判
 │   │   ├── config.py       # 环境变量
@@ -173,7 +201,7 @@ curl -X POST http://127.0.0.1:8000/api/sandbox/run \
 │   ├── scripts/            # 冒烟测试、检索评测、评测中台初始化、沙箱验收
 │   └── docker-compose.yml  # MySQL / Redis / pgvector
 ├── frontend/               # Next.js 14 App Router
-│   ├── app/                # 页面：工作台、知识库、监控、评测中台、登录
+│   ├── app/                # 页面：工作台、知识库、知识网络、监控、评测中台、登录
 │   ├── components/         # 对话、消息、审批卡、来源卡、侧栏
 │   └── lib/                # SSE 客户端、鉴权、会话 store
 ├── enterprise_kb/          # 企业制度知识库（11 份虚构文档：手册/报销/采购/安全/合规等）
@@ -238,6 +266,10 @@ Windows 用户也可以直接双击 `start-demo.bat`（需 Node 已在 PATH 中�
 | POST | `/api/chat/resume` | 恢复被中断的审批（`thread_id` + `approved`） |
 | POST | `/api/rag/ingest` | 重建知识库索引（admin） |
 | GET | `/api/rag/kbs/{kb_id}/documents` | 知识库文档清单 |
+| GET | `/api/admin/wiki/overview` | 实体页 / 关系边 / 别名规模与核心实体（admin） |
+| GET | `/api/admin/wiki/pages` `/pages/{slug}` | 实体页列表与详情（出边 / 入边 / 别名，admin） |
+| GET | `/api/admin/wiki/search` `/graph` | 关系检索与关系图（admin） |
+| POST | `/api/admin/wiki/rebuild` | 重建关系索引，不影响向量索引（admin） |
 | GET | `/api/admin/traces` | 最近对话轨迹（admin） |
 | POST | `/api/sandbox/run` | 在隔离容器里执行一段 Python/Node 代码（登录可见） |
 | GET | `/api/sandbox/status` | 沙箱镜像、限制与预热池状态 |

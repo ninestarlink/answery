@@ -106,6 +106,7 @@ async def _retrieve(state: AgentState) -> dict[str, Any]:
             "hits": len(result["hits"]),
             "timings": result["timings"],
             "degraded": result["degraded"],
+            "wiki_pages": len((result.get("wiki") or {}).get("pages") or []),
         },
     }
 

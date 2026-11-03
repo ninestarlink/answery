@@ -56,6 +56,22 @@ class Settings(BaseSettings):
     # 送进模型的上下文最大字符数
     rag_max_chars: int = 3200
 
+    # ---------- LLMWiki 关系知识层 ----------
+    # 实体页 + wikilink/backlink 做知识组织，检索时作为额外的关系召回通道，
+    # 与向量 / BM25 共用同一次 rerank，不替换原混合检索。
+    wiki_enabled: bool = True
+    # 关系扩展跳数：1 跳足够覆盖「商品 → 售后政策」「制度 → 引用制度」
+    wiki_hop: int = 1
+    # 单次关系检索最多带出的实体页数量
+    wiki_max_pages: int = 4
+    # 关系上下文注入提示词的最大字符数
+    wiki_context_chars: int = 700
+    # 实体页 / 关系边内存缓存时长（秒）
+    wiki_cache_ttl: int = 60
+    # 命中实体页后，其原文章节在精排分上获得的小幅实体先验加成。
+    # 语义是「问题已经明确指向这个实体」，比单块词面重合更可靠，但仍由精排主导排序。
+    wiki_score_boost: float = 0.05
+
     # ---------- 对话模型（默认硅基流动；智谱配置保留备用） ----------
     # chat_provider 取 siliconflow 或 zhipu
     chat_provider: str = "siliconflow"

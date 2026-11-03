@@ -14,7 +14,7 @@ import time
 from typing import Any
 
 from ..config import settings
-from . import store, zhipu
+from . import store, wiki, zhipu
 from .bm25 import BM25Index
 
 _BM25_TTL = 300
@@ -94,6 +94,8 @@ async def search_multi(
     seen: set[str] = set()
     degraded: list[str] = []
     timings: dict[str, int] = {}
+    wiki_pages: list[dict[str, Any]] = []
+    wiki_paths: list[dict[str, Any]] = []
     for kb, result in zip(kb_ids, results):
         degraded.extend(f"{kb}：{d}" for d in result["degraded"])
         for key, value in result["timings"].items():
@@ -103,6 +105,9 @@ async def search_multi(
                 continue
             seen.add(hit["chunk_id"])
             merged.append({**hit, "kb_id": kb})
+        wiki = result.get("wiki") or {}
+        wiki_pages.extend({**page, "kb_id": kb} for page in wiki.get("pages", []))
+        wiki_paths.extend({**path, "kb_id": kb} for path in wiki.get("paths", []))
 
     merged.sort(key=lambda x: x["final_score"], reverse=True)
     hits = merged[:limit]
@@ -173,6 +178,7 @@ async def search_multi(
         "evidence": evidence,
         "timings": timings,
         "degraded": degraded,
+        "wiki": {"pages": wiki_pages, "paths": wiki_paths},
     }
 
 
@@ -209,15 +215,54 @@ async def search(
     sparse_ids = [chunk_id for chunk_id, _ in sparse]
     sparse_rows = {r["chunk_id"]: r for r in sparse_rows_map}
 
+    # LLMWiki 关系召回：先命中实体页，再把实体页对应的原文章节作为额外候选。
+    # 它只是多一路召回，最终仍与向量 / BM25 候选一起走同一次 rerank。
+    wiki_result: dict[str, Any] | None = None
+    if settings.wiki_enabled:
+        try:
+            t0 = time.perf_counter()
+            wiki_result = await wiki.retrieve(kb_id, query)
+            timings["wiki_ms"] = int((time.perf_counter() - t0) * 1000)
+        except Exception as exc:  # noqa: BLE001
+            degraded.append(f"LLMWiki 不可用：{exc}")
+
     fused = _rrf_merge(dense, sparse_ids, sparse_rows, settings.rag_rrf_k)
     candidates = fused[: max(settings.rag_rerank_top_k * 3, 20)]
+
+    if wiki_result and wiki_result.get("doc_names"):
+        existing = {c["chunk_id"] for c in candidates}
+        wiki_docs = set(wiki_result["doc_names"])
+        anchored: list[dict[str, Any]] = []
+        per_doc: dict[str, int] = {}
+        for chunk_id, _score in index.search(query, settings.rag_sparse_top_k * 2):
+            row = sparse_rows.get(chunk_id)
+            if row is None or row["doc_name"] not in wiki_docs:
+                continue
+            if per_doc.get(row["doc_name"], 0) >= 2:
+                continue
+            if chunk_id in existing:
+                continue
+            per_doc[row["doc_name"]] = per_doc.get(row["doc_name"], 0) + 1
+            anchored.append(row)
+        for rank, row in enumerate(anchored, start=1):
+            candidates.append(
+                {
+                    **row,
+                    "dense_rank": None,
+                    "sparse_rank": None,
+                    "rrf": 1.0 / (settings.rag_rrf_k + rank),
+                    "wiki_rank": rank,
+                }
+            )
 
     rerank_scores: dict[str, float] = {}
     if use_rerank and candidates:
         try:
             t0 = time.perf_counter()
+            # 全量候选都打分：否则只回传 top_k 时，wiki 关系召回的候选永远拿不到分数，
+            # 会被后面的阈值过滤直接丢掉，关系通道等于没接上。
             ranked = await zhipu.rerank(
-                query, [c["content"] for c in candidates], settings.rag_rerank_top_k
+                query, [c["content"] for c in candidates], len(candidates)
             )
             rerank_scores = {candidates[i]["chunk_id"]: score for i, score in ranked}
             timings["rerank_ms"] = int((time.perf_counter() - t0) * 1000)
@@ -227,9 +272,11 @@ async def search(
     max_rrf = max((c["rrf"] for c in candidates), default=1.0) or 1.0
     for item in candidates:
         item["score"] = rerank_scores.get(item["chunk_id"])
-        item["final_score"] = (
-            item["score"] if item["score"] is not None else item["rrf"] / max_rrf
-        )
+        base = item["score"] if item["score"] is not None else item["rrf"] / max_rrf
+        # 实体先验：wiki 命中说明问题指向这个实体，给其原文章节小幅加成
+        if item.get("wiki_rank") and settings.wiki_enabled and item["score"] is not None:
+            base += settings.wiki_score_boost
+        item["final_score"] = base
 
     if rerank_scores:
         candidates = [c for c in candidates if (c["score"] or 0) >= _min_score()]
@@ -279,6 +326,13 @@ async def search(
             }
         )
 
+    # 关系上下文只做组织层补充，放在原文之后、受总字符预算约束
+    wiki_context = (wiki_result or {}).get("context") or ""
+    if wiki_context:
+        block = f"【LLMWiki 关系知识】\n{wiki_context}"
+        if used + len(block) <= settings.rag_max_chars or not context_parts:
+            context_parts.append(block)
+
     timings["total_ms"] = int((time.perf_counter() - started) * 1000)
     return {
         "hits": hits,
@@ -286,4 +340,9 @@ async def search(
         "evidence": evidence,
         "timings": timings,
         "degraded": degraded,
+        "wiki": {
+            "pages": (wiki_result or {}).get("pages", []),
+            "paths": (wiki_result or {}).get("paths", []),
+            "context_chars": len(wiki_context),
+        },
     }

@@ -405,6 +405,82 @@ async function postJSON<T>(path: string, body: unknown): Promise<T> {
   return mutateJSON<T>(path, 'POST', body);
 }
 
+export type WikiPageType = 'product' | 'policy' | 'section';
+
+export interface WikiOverview {
+  kb_id: string;
+  enabled: boolean;
+  pages: number;
+  links: number;
+  aliases: number;
+  docs: number;
+  types: Array<{ page_type: WikiPageType; pages: number }>;
+  hubs: Array<{ title: string; slug: string; backlinks: number }>;
+  built_at: string | null;
+}
+
+export interface WikiPageSummary {
+  slug: string;
+  kb_id: string;
+  title: string;
+  page_type: WikiPageType;
+  summary: string | null;
+  aliases: string[];
+  source_docs: string[];
+  backlinks: number;
+}
+
+export interface WikiPageDetail {
+  page: {
+    slug: string;
+    kb_id: string;
+    title: string;
+    page_type: WikiPageType;
+    summary: string | null;
+    body: string | null;
+    aliases: string[];
+    source_docs: string[];
+    built_at: string | null;
+  };
+  links: Array<{
+    target_slug: string;
+    relation: string;
+    target_title: string | null;
+    target_type: WikiPageType | null;
+  }>;
+  backlinks: Array<{
+    source_slug: string;
+    relation: string;
+    source_title: string | null;
+    source_type: WikiPageType | null;
+  }>;
+}
+
+export interface WikiSearchResult {
+  query: string;
+  kb_id: string;
+  pages: Array<
+    WikiPageSummary & {
+      distance: number;
+      matched: string | null;
+      relations: Array<{ to: string; title: string; relation: string }>;
+    }
+  >;
+  paths: Array<{
+    from: string;
+    from_title: string;
+    relation: string;
+    to: string;
+    to_title: string;
+  }>;
+  context: string;
+}
+
+export interface WikiGraph {
+  nodes: Array<{ slug: string; title: string; page_type: WikiPageType; kb_id: string }>;
+  edges: Array<{ source: string; target: string; relation: string }>;
+}
+
 export const adminApi = {
   overview: () => getJSON<Overview>('/api/admin/overview'),
   tables: () => getJSON<TablesResponse>('/api/admin/db/tables', 60_000),
@@ -482,4 +558,30 @@ export const adminApi = {
     if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
     return res.blob();
   },
+  wikiOverview: (kbId = 'all') =>
+    getJSON<WikiOverview>(`/api/admin/wiki/overview?kb_id=${encodeURIComponent(kbId)}`, 0),
+  wikiPages: (kbId = 'all', q = '', pageType = '') =>
+    getJSON<{ items: WikiPageSummary[]; total: number }>(
+      `/api/admin/wiki/pages?kb_id=${encodeURIComponent(kbId)}&limit=200` +
+        (q ? `&q=${encodeURIComponent(q)}` : '') +
+        (pageType ? `&page_type=${encodeURIComponent(pageType)}` : ''),
+      0,
+    ),
+  wikiPage: (slug: string) =>
+    getJSON<WikiPageDetail>(`/api/admin/wiki/pages/${encodeURIComponent(slug)}`, 0),
+  wikiSearch: (q: string, kbId = 'all') =>
+    getJSON<WikiSearchResult>(
+      `/api/admin/wiki/search?q=${encodeURIComponent(q)}&kb_id=${encodeURIComponent(kbId)}`,
+      0,
+    ),
+  wikiGraph: (kbId = 'all', limit = 120) =>
+    getJSON<WikiGraph>(
+      `/api/admin/wiki/graph?kb_id=${encodeURIComponent(kbId)}&limit=${limit}`,
+      0,
+    ),
+  wikiRebuild: (kbId = 'all') =>
+    postJSON<{ items: Array<{ kb_id: string; pages: number; links: number }> }>(
+      '/api/admin/wiki/rebuild',
+      { kb_id: kbId },
+    ),
 };

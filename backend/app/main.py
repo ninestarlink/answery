@@ -4,6 +4,7 @@
 而不是一个干巴巴的 500。
 """
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -14,7 +15,8 @@ from sqlalchemy import text
 from .config import settings
 from .database import SessionLocal, engine, get_redis
 from .rag import store as rag_store
-from .routers import admin, auth, chat, eval, rag, sandbox, tickets, tools
+from .rag import wiki as wiki_store
+from .routers import admin, auth, chat, eval, rag, sandbox, tickets, tools, wiki as wiki_router
 from . import sandbox as sandbox_service
 
 logging.basicConfig(
@@ -57,6 +59,10 @@ async def lifespan(app: FastAPI):
 
     await sandbox_service.warm_up()
 
+    # 关系索引为空时后台建一次：不阻塞启动，失败也不影响 RAG 主链路
+    if settings.wiki_enabled:
+        app.state.wiki_build_task = asyncio.create_task(wiki_store.ensure_built())
+
     yield
 
     await sandbox_service.shutdown()
@@ -81,6 +87,7 @@ app.include_router(tickets.router)
 app.include_router(rag.router)
 app.include_router(admin.router)
 app.include_router(eval.router)
+app.include_router(wiki_router.router)
 app.include_router(sandbox.router)
 
 

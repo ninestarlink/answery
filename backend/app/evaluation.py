@@ -17,6 +17,7 @@ from .models import EvalCase, EvalDataset, EvalResult, EvalRun
 from .rag import retriever
 
 DATASET_CODE = "golden-v1"
+DATASET_DESCRIPTION = "48 条覆盖售前、售后、企业制度、合规与跨文档关系推理的检索金标用例"
 
 # 金标用例：问题 -> 必须命中的文档。分类覆盖售前、售中、售后、企业制度与合规。
 GOLDEN_CASES: list[dict] = [
@@ -346,6 +347,71 @@ GOLDEN_CASES: list[dict] = [
         "kw": "注销,删除,天",
         "cat": "合规",
     },
+    # 关系推理切片：答案往往不在问句直接命中的那一篇，需要「商品 → 政策」「制度 → 引用制度」跨一篇取值
+    {
+        "no": "E41",
+        "q": "轻云 Pro 出现质量问题，退货的运费和质保怎么算？",
+        "kb": "shop",
+        "doc": "returns",
+        "kw": "轻云 Pro,质量问题,运费,质保",
+        "cat": "关系推理",
+    },
+    {
+        "no": "E42",
+        "q": "山野 GTX 越野鞋鞋底开胶，算质量问题吗，怎么退换？",
+        "kb": "shop",
+        "doc": "returns",
+        "kw": "山野 GTX,开胶,质量问题,退换",
+        "cat": "关系推理",
+    },
+    {
+        "no": "E43",
+        "q": "大促期间下单后多久发货，偏远地区要额外几天？",
+        "kb": "shop",
+        "doc": "shipping",
+        "kw": "大促,发货,偏远地区,天",
+        "cat": "关系推理",
+    },
+    {
+        "no": "E44",
+        "q": "客服主管遇到供应商批量质量问题，SOP 要求按哪份制度处理？",
+        "kb": "enterprise",
+        "doc": "客服升级SOP",
+        "kw": "供应商,批量质量问题,采购与供应商管理办法",
+        "cat": "关系推理",
+    },
+    {
+        "no": "E45",
+        "q": "处理客户信息查询时，L4 数据有哪些脱敏和留痕要求？",
+        "kb": "enterprise",
+        "doc": "信息安全规范",
+        "kw": "L4,脱敏,留痕",
+        "cat": "关系推理",
+    },
+    {
+        "no": "E46",
+        "q": "新员工导师带教期多久，导师津贴和培训学时怎么规定？",
+        "kb": "enterprise",
+        "doc": "员工培训与晋升规范",
+        "kw": "导师,带教期,津贴,学时",
+        "cat": "关系推理",
+    },
+    {
+        "no": "E47",
+        "q": "连续两个季度绩效为 C 的员工，还能申请晋升吗？",
+        "kb": "enterprise",
+        "doc": "绩效考核管理办法",
+        "kw": "绩效 C,两个季度,晋升",
+        "cat": "关系推理",
+    },
+    {
+        "no": "E48",
+        "q": "员工离职当天，账号权限回收和 L4 数据交接有什么要求？",
+        "kb": "enterprise",
+        "doc": "信息安全规范",
+        "kw": "离职,账号权限,L4",
+        "cat": "关系推理",
+    },
 ]
 
 
@@ -359,10 +425,12 @@ async def ensure_dataset() -> int:
             dataset = EvalDataset(
                 code=DATASET_CODE,
                 name="客服回答金标集 v1",
-                description="40 条覆盖售前、售后、企业制度与合规的检索金标用例",
+                description=DATASET_DESCRIPTION,
             )
             db.add(dataset)
             await db.flush()
+        elif dataset.description != DATASET_DESCRIPTION:
+            dataset.description = DATASET_DESCRIPTION
 
         existing = set(
             (

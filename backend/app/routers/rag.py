@@ -84,6 +84,7 @@ async def search(req: SearchRequest):
         "evidence": result["evidence"],
         "timings": result["timings"],
         "degraded": result["degraded"],
+        "wiki": result.get("wiki") or {"pages": [], "paths": []},
     }
 
 
