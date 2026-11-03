@@ -281,6 +281,22 @@ class EvalResult(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+class EvalCaseReview(Base):
+    """金标用例的人工复盘状态：挂在用例上，跨 run 保留。"""
+
+    __tablename__ = "eval_case_review"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    case_id: Mapped[int] = mapped_column(BigInteger, unique=True)
+    status: Mapped[str] = mapped_column(
+        String(16), default="open", comment="open/fixed/ignored"
+    )
+    note: Mapped[str | None] = mapped_column(String(255), default=None)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
 class Ticket(Base):
     """IT 工单：由本地规则引擎从自然语言报障生成，字段全部可解释。"""
 

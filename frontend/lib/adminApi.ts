@@ -251,9 +251,23 @@ export interface EvalCase {
   difficulty: string;
 }
 
+export type EvalReviewStatus = 'open' | 'fixed' | 'ignored';
+
+export interface EvalCategory {
+  category: string;
+  case_count: number;
+  hit_count: number;
+  hit_rate: number;
+  mrr: number;
+  avg_latency_ms: number;
+  p95_latency_ms: number;
+}
+
 export interface EvalCaseResult {
+  case_id: number;
   case_no: string;
   question: string;
+  category: string;
   kb_id: string;
   expected_doc: string;
   retrieved_doc: string | null;
@@ -262,11 +276,43 @@ export interface EvalCaseResult {
   latency_ms: number;
   degraded: string | null;
   top_docs: string | null;
+  review_status: EvalReviewStatus;
+  review_note: string | null;
 }
 
 export interface EvalRunDetail {
   run: EvalRun;
+  categories: EvalCategory[];
   results: EvalCaseResult[];
+}
+
+export interface EvalCompareCategory {
+  category: string;
+  baseline_hit_rate: number;
+  current_hit_rate: number;
+  delta_hit_rate: number;
+  delta_mrr: number;
+}
+
+export interface EvalCompareCase {
+  case_no: string;
+  category: string;
+  question: string;
+  baseline_hit: boolean;
+  current_hit: boolean;
+  baseline_rank: number;
+  current_rank: number;
+  delta_latency_ms: number;
+  status: 'improved' | 'regressed' | 'same';
+}
+
+export interface EvalCompare {
+  baseline: EvalRun;
+  current: EvalRun;
+  delta: { hit_rate: number; mrr: number; p95_latency_ms: number };
+  counts: { improved: number; regressed: number; same: number };
+  categories: EvalCompareCategory[];
+  cases: EvalCompareCase[];
 }
 
 async function postJSON<T>(path: string, body: unknown): Promise<T> {
@@ -325,4 +371,22 @@ export const adminApi = {
   evalRun: (id: number) => getJSON<EvalRunDetail>(`/api/admin/eval/runs/${id}`, 0),
   evalStart: (payload: { dataset_id?: number; top_k?: number; note?: string }) =>
     postJSON<EvalRun>('/api/admin/eval/runs', payload),
+  evalCompare: (runId: number, baselineId: number) =>
+    getJSON<EvalCompare>(
+      `/api/admin/eval/runs/${runId}/compare?baseline_id=${baselineId}`,
+      0,
+    ),
+  evalReview: (caseId: number, status: EvalReviewStatus, note?: string | null) =>
+    postJSON<{ case_id: number; status: EvalReviewStatus; note: string | null }>(
+      `/api/admin/eval/cases/${caseId}/review`,
+      { status, note: note ?? null },
+    ),
+  evalExport: async (runId: number) => {
+    const res = await fetch(`${API_BASE}/api/admin/eval/runs/${runId}/export`, {
+      cache: 'no-store',
+      headers: authHeaders(),
+    });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    return res.blob();
+  },
 };

@@ -308,4 +308,14 @@ CREATE TABLE eval_result (
   KEY idx_eval_result_case (case_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='评测用例结果';
 
+CREATE TABLE eval_case_review (
+  id         BIGINT       NOT NULL AUTO_INCREMENT,
+  case_id    BIGINT       NOT NULL,
+  status     VARCHAR(16)  NOT NULL DEFAULT 'open' COMMENT 'open/fixed/ignored',
+  note       VARCHAR(255) DEFAULT NULL,
+  updated_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_eval_case_review_case (case_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='金标用例人工复盘状态';
+
 SET FOREIGN_KEY_CHECKS = 1;

@@ -46,6 +46,7 @@ ALLOWED_TABLES: dict[str, str] = {
     "eval_case": "评测金标用例",
     "eval_run": "评测运行记录",
     "eval_result": "评测用例结果",
+    "eval_case_review": "用例人工复盘状态",
 }
 
 # 知识库源文件（与 pgvector 索引同源）
