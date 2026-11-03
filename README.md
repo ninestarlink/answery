@@ -18,6 +18,10 @@
 | --- | --- |
 | ![带出处的回答](docs/screenshots/03-answer.png) | ![运行监控](docs/screenshots/04-monitor.png) |
 
+| 知识网络（LLMWiki） | 评测中台 |
+| --- | --- |
+| ![知识网络](docs/screenshots/06-wiki.png) | ![评测中台](docs/screenshots/05-eval.png) |
+
 ## LLMWiki：知识组织层，而不是再做一个向量库
 
 普通 RAG 把文档切成互不相干的 chunk，能召回「一段话」，但接不住「轻云 Pro 的售后按哪份政策」「这条供应商问题最终该看哪份制度」这类**需要跨一篇取值**的问题。LLMWiki 在切片之上补了一层可读的知识组织：
@@ -29,9 +33,7 @@
 - **关系上下文**：把「实体摘要 + 关系路径 + 邻居摘要」压缩成一段 `【LLMWiki 关系知识】` 注入提示词，回答能说清「依据哪份制度、和哪条政策相关」。
 - **后台索引**：`wiki_pages / wiki_links` 两张表，启动时若为空则后台自动构建，不阻塞服务；管理端可一键重建，失败不影响 RAG 降级。
 
-前端「知识网络」页可直接演示：左侧实体列表与类型筛选，右侧实体页的别名、出边、入边与原文摘录，顶部搜索框跑关系检索并展示「命中 → 一跳」路径和最终上下文。
-
-管理接口（均需管理员 Token）：`GET /api/admin/wiki/overview`、`GET /api/admin/wiki/pages`、`GET /api/admin/wiki/pages/{slug}`、`GET /api/admin/wiki/search`、`GET /api/admin/wiki/graph`、`POST /api/admin/wiki/rebuild`。
+前端「知识网络」页可直接演示：左侧实体列表与类型筛选，右侧实体页的别名、出边、入边与原文摘录，顶部搜索框跑关系检索并展示「命中 → 一跳」路径和最终上下文。管理接口（均需管理员 Token）：`GET /api/admin/wiki/overview`、`GET /api/admin/wiki/pages`、`GET /api/admin/wiki/pages/{slug}`、`GET /api/admin/wiki/search`、`GET /api/admin/wiki/graph`、`POST /api/admin/wiki/rebuild`。
 
 ## 评测中台：让「回答变好」有数字依据
 
@@ -48,8 +50,6 @@
 - **数据集在线维护**：用例增删改 + CSV 导入（中英文表头、按编号幂等覆盖），不用改代码或重跑种子脚本。
 - **线上抽样回灌**：从 `chat_trace` 拉取尚未进金标集的真实问题，一键填入表单，补一个期望来源即可沉淀为回归用例。
 - **可下钻**：每条用例能看到期望来源、实际 Top1、命中位次和完整 TopK 文档，不用猜。
-
-![评测中台](docs/screenshots/05-eval.png)
 
 最近一次真实运行（`run #7`，本机 MySQL + pgvector + 硅基流动 rerank，含 LLMWiki 关系召回）：
 
