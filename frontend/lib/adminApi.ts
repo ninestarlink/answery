@@ -315,12 +315,76 @@ export interface EvalCompare {
   cases: EvalCompareCase[];
 }
 
-async function postJSON<T>(path: string, body: unknown): Promise<T> {
+/** 生成质量抽样评测（LLM 裁判） */
+export interface EvalJudgmentRow {
+  case_no: string;
+  question: string;
+  answer: string;
+  context_docs: string | null;
+  faithful: boolean;
+  relevance: number;
+  citation_ok: boolean;
+  verdict: 'pass' | 'fail';
+  reason: string | null;
+  latency_ms: number;
+  created_at: string | null;
+}
+
+export interface EvalJudgments {
+  run_id: number;
+  total: number;
+  pass_count: number;
+  fail_count: number;
+  pass_rate: number;
+  grounded_rate: number;
+  citation_rate: number;
+  avg_relevance: number;
+  avg_latency_ms: number;
+  running: boolean;
+  rows: EvalJudgmentRow[];
+}
+
+/** 线上抽样候选：chat_trace 中尚未进入金标集的真实问题 */
+export interface EvalCandidate {
+  id: number;
+  question: string;
+  app: string;
+  kb_id: string;
+  category: string;
+  status: string;
+  hits: number;
+  tools: number;
+  degraded: string | null;
+  created_at: string | null;
+}
+
+export interface EvalCaseDraft {
+  case_no: string;
+  question: string;
+  kb_id: string;
+  expected_doc: string;
+  expected_keywords?: string | null;
+  category: string;
+  difficulty: string;
+}
+
+export interface EvalImportResult {
+  created: number;
+  updated: number;
+  failed: number;
+  errors: string[];
+}
+
+async function mutateJSON<T>(
+  path: string,
+  method: 'POST' | 'PUT' | 'DELETE',
+  body?: unknown,
+): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
-    method: 'POST',
+    method,
     cache: 'no-store',
     headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (res.status === 401) {
     memoryCache.clear();
@@ -335,6 +399,10 @@ async function postJSON<T>(path: string, body: unknown): Promise<T> {
   }
   memoryCache.clear();
   return (await res.json()) as T;
+}
+
+async function postJSON<T>(path: string, body: unknown): Promise<T> {
+  return mutateJSON<T>(path, 'POST', body);
 }
 
 export const adminApi = {
@@ -380,6 +448,31 @@ export const adminApi = {
     postJSON<{ case_id: number; status: EvalReviewStatus; note: string | null }>(
       `/api/admin/eval/cases/${caseId}/review`,
       { status, note: note ?? null },
+    ),
+  evalJudge: (runId: number, sample: number) =>
+    postJSON<{ run_id: number; sample: number; existing: number; status: string }>(
+      `/api/admin/eval/runs/${runId}/judge`,
+      { sample },
+    ),
+  evalJudgments: (runId: number) =>
+    getJSON<EvalJudgments>(`/api/admin/eval/runs/${runId}/judgments`, 0),
+  evalCases: (datasetId: number) =>
+    getJSON<{ dataset: { id: number; code: string; name: string }; cases: EvalCase[] }>(
+      `/api/admin/eval/datasets/${datasetId}/cases`,
+      0,
+    ),
+  evalCreateCase: (datasetId: number, payload: EvalCaseDraft) =>
+    postJSON<EvalCase>(`/api/admin/eval/datasets/${datasetId}/cases`, payload),
+  evalUpdateCase: (caseId: number, payload: EvalCaseDraft) =>
+    mutateJSON<EvalCase>(`/api/admin/eval/cases/${caseId}`, 'PUT', payload),
+  evalDeleteCase: (caseId: number) =>
+    mutateJSON<{ deleted: number }>(`/api/admin/eval/cases/${caseId}`, 'DELETE'),
+  evalImportCases: (datasetId: number, csv: string) =>
+    postJSON<EvalImportResult>(`/api/admin/eval/datasets/${datasetId}/cases/import`, { csv }),
+  evalCandidates: (limit = 12) =>
+    getJSON<{ candidates: EvalCandidate[]; existing: number }>(
+      `/api/admin/eval/candidates?limit=${limit}`,
+      0,
     ),
   evalExport: async (runId: number) => {
     const res = await fetch(`${API_BASE}/api/admin/eval/runs/${runId}/export`, {

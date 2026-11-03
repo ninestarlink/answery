@@ -27,6 +27,9 @@
 - **A/B 对比**：任意两次运行互为基线，输出 `ΔHit@5`、`ΔMRR`、`ΔP95`，并列出逐条提升 / 退化用例。
 - **质量门禁**：`Hit@5 ≥ 85%`、`MRR ≥ 0.70`、降级为 0 才显示 PASS；低于阈值需要先复盘 bad case，再改检索。
 - **人工复盘 + 报告导出**：每条用例可标记「待复盘 / 已修复 / 已忽略」，状态跨 run 保留；一键导出带 BOM 的 CSV，Excel 直接打开。
+- **生成质量评测（LLM-as-judge）**：在检索上下文上真实生成回答，再由裁判模型输出忠实度、相关性（1-5）与引用正确性，按 `10 / 20 / 40` 抽样控制成本，补齐「检索命中 ≠ 回答可信」。
+- **数据集在线维护**：用例增删改 + CSV 导入（中英文表头、按编号幂等覆盖），不用改代码或重跑种子脚本。
+- **线上抽样回灌**：从 `chat_trace` 拉取尚未进金标集的真实问题，一键填入表单，补一个期望来源即可沉淀为回归用例。
 - **可下钻**：每条用例能看到期望来源、实际 Top1、命中位次和完整 TopK 文档，不用猜。
 
 ![评测中台](docs/screenshots/05-eval.png)
@@ -41,8 +44,9 @@
 | 平均 / P95 延迟 | 1493 / 1724 ms | 含 embedding + 双路召回 + rerank |
 | 降级检索 | 0 | 无 embedding / rerank 降级 |
 | A/B（`top1` → `top5`） | **+10.0 pp / +0.050 MRR** | 基线 run #3 为 90.0% / 0.900；4 条提升、0 条退化 |
+| 生成质量抽样 | 2/2 PASS | 裁判命中 `products` / `coupons`，忠实度与引用均正确 |
 
-跑批在后台执行、前端轮询进度，单条结果边跑边落库；接口为 `POST /api/admin/eval/runs`、`GET /api/admin/eval/runs/{id}`、`GET /api/admin/eval/overview`、`GET /api/admin/eval/runs/{id}/compare`、`GET /api/admin/eval/runs/{id}/export`、`POST /api/admin/eval/cases/{id}/review`，全部要求管理员 Token。复现：
+跑批在后台执行、前端轮询进度，单条结果边跑边落库；接口为 `POST /api/admin/eval/runs`、`GET /api/admin/eval/runs/{id}`、`GET /api/admin/eval/overview`、`GET /api/admin/eval/runs/{id}/compare`、`GET /api/admin/eval/runs/{id}/export`、`POST /api/admin/eval/cases/{id}/review`、`POST /api/admin/eval/runs/{id}/judge`、`GET /api/admin/eval/runs/{id}/judgments`、`POST/PUT/DELETE /api/admin/eval/datasets/{id}/cases`、`POST /api/admin/eval/datasets/{id}/cases/import`、`GET /api/admin/eval/candidates`，全部要求管理员 Token。复现：
 
 ```bash
 cd backend
@@ -117,11 +121,14 @@ curl -X POST http://127.0.0.1:8000/api/sandbox/run \
 
 ### 六、评测中台
 
-- **金标数据集**：`eval_dataset / eval_case / eval_run / eval_result / eval_case_review` 五张表，40 条用例、10 类场景，电商与企业制度共用同一套检索链路
+- **金标数据集**：`eval_dataset / eval_case / eval_run / eval_result / eval_judgment / eval_case_review` 六张表，40 条用例、10 类场景，电商与企业制度共用同一套检索链路
 - **异步跑批**：后台执行，逐条写入结果；前端轮询 `progress`，可随时切走页面
 - **分场景切片**：按 10 类场景分别汇总 Hit@5 / MRR / P95，横条直接对比基线 delta，短板一眼可见
 - **A/B 对比**：任选历史 run 作基线，输出整体 `ΔHit@5 / ΔMRR / ΔP95` 与逐条提升 / 退化清单
 - **质量门禁**：阈值 85% / 0.70 / 零降级，前端显示 PASS 或 REVIEW
+- **生成质量评测**：抽样让模型基于检索上下文作答，裁判模型按忠实度 / 相关性 / 引用正确性打分，结果落 `eval_judgment`，失败原因直接展示
+- **数据集维护**：抽屉式用例管理，支持新增、编辑、删除与 CSV 导入；导入按编号幂等，脏数据逐行报错不阻断整批
+- **线上抽样回灌**：从 `chat_trace` 过滤已入库问题，一键填入表单沉淀为新金标用例
 - **人工复盘**：用例级「待复盘 / 已修复 / 已忽略」状态跨 run 保留，复盘结论不随新跑批丢失
 - **报告导出**：CSV 带 BOM（UTF-8），含场景、位次、耗时、复盘状态与 TopK 来源，可直接进 Excel 或周报
 - **可下钻**：每条用例显示期望文档、实际 Top1、首中位次、耗时和完整 TopK 来源，便于 bad case 复盘
@@ -140,7 +147,7 @@ curl -X POST http://127.0.0.1:8000/api/sandbox/run \
 │ 检索层   解析 → 父子切片 → embedding → pgvector+BM25 → RRF → rerank → 证据链                 │
 │ 工具层   商品 / 订单 / 政策 / 优惠券 / 工单（Redis 幂等）                                     │
 │ 记账层   chat_history（Token 成本） · chat_trace（执行轨迹）                                  │
-│ 评测层   eval_case（金标） · eval_run（回归） · eval_result（下钻） · eval_case_review（复盘） │
+│ 评测层   eval_case（金标） · eval_run（回归） · eval_result（下钻） · eval_judgment（裁判） · eval_case_review（复盘） │
 └──────────┬───────────────────────┬──────────────────────────────┬───────────────────────────┘
            │                       │                              │
       MySQL 8                 Redis 7                    PostgreSQL + pgvector
@@ -157,6 +164,7 @@ curl -X POST http://127.0.0.1:8000/api/sandbox/run \
 │   │   ├── rag/            # 解析、切片、embedding、向量库、BM25、检索编排
 │   │   ├── routers/        # chat / rag / admin / eval / auth / tickets / tools
 │   │   ├── evaluation.py   # 金标用例、跑批与指标汇总
+│   │   ├── eval_judge.py   # 生成质量抽样与 LLM 裁判
 │   │   ├── config.py       # 环境变量
 │   │   ├── models.py       # ORM
 │   │   ├── sandbox.py      # Docker 预热池与隔离执行

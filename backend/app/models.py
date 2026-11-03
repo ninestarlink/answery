@@ -281,6 +281,27 @@ class EvalResult(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+class EvalJudgment(Base):
+    """生成质量抽样评测：同一 run 下按用例抽样，模型作答 + 裁判打分。"""
+
+    __tablename__ = "eval_judgment"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    run_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    case_id: Mapped[int] = mapped_column(BigInteger)
+    case_no: Mapped[str] = mapped_column(String(16))
+    question: Mapped[str] = mapped_column(String(255))
+    answer: Mapped[str] = mapped_column(Text)
+    context_docs: Mapped[str | None] = mapped_column(String(255), default=None)
+    faithful: Mapped[int] = mapped_column(Integer, default=0)
+    relevance: Mapped[int] = mapped_column(Integer, default=0)
+    citation_ok: Mapped[int] = mapped_column(Integer, default=0)
+    verdict: Mapped[str] = mapped_column(String(8), default="fail")
+    reason: Mapped[str | None] = mapped_column(String(255), default=None)
+    latency_ms: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 class EvalCaseReview(Base):
     """金标用例的人工复盘状态：挂在用例上，跨 run 保留。"""
 

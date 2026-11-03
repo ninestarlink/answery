@@ -12,12 +12,22 @@ from datetime import datetime
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 
+from ..config import settings
 from ..database import SessionLocal
+from ..eval_judge import judge_run, judgment_stats
 from ..eval_metrics import summarize
 from ..evaluation import dataset_stats, ensure_dataset, execute_run
-from ..models import EvalCase, EvalCaseReview, EvalDataset, EvalResult, EvalRun
+from ..models import (
+    ChatTrace,
+    EvalCase,
+    EvalCaseReview,
+    EvalDataset,
+    EvalJudgment,
+    EvalResult,
+    EvalRun,
+)
 from .auth import require_admin
 
 router = APIRouter(
@@ -60,6 +70,37 @@ class RunRequest(BaseModel):
 class ReviewRequest(BaseModel):
     status: str = Field(pattern="^(open|fixed|ignored)$")
     note: str | None = Field(default=None, max_length=255)
+
+
+class JudgeRequest(BaseModel):
+    sample: int = Field(default=10, ge=1, le=40)
+
+
+class CasePayload(BaseModel):
+    case_no: str = Field(min_length=1, max_length=16)
+    question: str = Field(min_length=1, max_length=255)
+    kb_id: str = Field(pattern="^(shop|enterprise)$")
+    expected_doc: str = Field(min_length=1, max_length=128)
+    expected_keywords: str | None = Field(default=None, max_length=255)
+    category: str = Field(default="未分类", min_length=1, max_length=32)
+    difficulty: str = Field(default="normal", pattern="^(easy|normal|hard)$")
+
+
+class ImportRequest(BaseModel):
+    csv: str = Field(min_length=1, max_length=200_000)
+
+
+def _case_dict(case: EvalCase) -> dict:
+    return {
+        "id": case.id,
+        "case_no": case.case_no,
+        "question": case.question,
+        "kb_id": case.kb_id,
+        "expected_doc": case.expected_doc,
+        "expected_keywords": case.expected_keywords,
+        "category": case.category,
+        "difficulty": case.difficulty,
+    }
 
 
 @router.get("/overview")
@@ -402,3 +443,263 @@ async def review_case(case_id: int, payload: ReviewRequest):
             review.note = payload.note
         await db.commit()
     return {"case_id": case_id, "status": payload.status, "note": payload.note}
+
+
+# ------------------------------------------------------------------
+# 生成质量评测（LLM-as-judge）
+# ------------------------------------------------------------------
+
+
+@router.post("/runs/{run_id}/judge")
+async def start_judge(run_id: int, payload: JudgeRequest, tasks: BackgroundTasks):
+    """对已完成的 run 抽样：生成回答 + 裁判打分，结果轮询获取。"""
+    if not settings.chat_api_key:
+        raise HTTPException(status_code=400, detail="未配置对话模型 API Key，无法做生成质量评测")
+    async with SessionLocal() as db:
+        run = (await db.execute(select(EvalRun).where(EvalRun.id == run_id))).scalar_one_or_none()
+        if run is None:
+            raise HTTPException(status_code=404, detail="评测记录不存在")
+        if run.status != "completed":
+            raise HTTPException(status_code=409, detail="请等待检索评测完成后再做生成评测")
+        judged = int(
+            await db.scalar(
+                select(func.count())
+                .select_from(EvalJudgment)
+                .where(EvalJudgment.run_id == run_id)
+            )
+            or 0
+        )
+    tasks.add_task(judge_run, run_id, payload.sample)
+    return {"run_id": run_id, "sample": payload.sample, "existing": judged, "status": "running"}
+
+
+@router.get("/runs/{run_id}/judgments")
+async def run_judgments(run_id: int):
+    async with SessionLocal() as db:
+        run = (await db.execute(select(EvalRun).where(EvalRun.id == run_id))).scalar_one_or_none()
+        if run is None:
+            raise HTTPException(status_code=404, detail="评测记录不存在")
+    return await judgment_stats(run_id)
+
+
+# ------------------------------------------------------------------
+# 数据集维护：在线增删改用例 + CSV 导入
+# ------------------------------------------------------------------
+
+_CSV_FIELDS = {
+    "case_no": "case_no",
+    "编号": "case_no",
+    "question": "question",
+    "问题": "question",
+    "kb_id": "kb_id",
+    "知识库": "kb_id",
+    "expected_doc": "expected_doc",
+    "期望来源": "expected_doc",
+    "expected_keywords": "expected_keywords",
+    "答案要点": "expected_keywords",
+    "category": "category",
+    "场景": "category",
+    "difficulty": "difficulty",
+    "难度": "difficulty",
+}
+
+
+def _difficulty(value: str | None) -> str:
+    text = (value or "").strip().lower()
+    return {"简单": "easy", "普通": "normal", "困难": "hard"}.get(text, text or "normal")
+
+
+def _parse_row(row: dict[str, str]) -> tuple[dict | None, str | None]:
+    """校验 CSV 一行，返回规范化字段或错误信息。"""
+    case_no = (row.get("case_no") or "").strip()
+    question = (row.get("question") or "").strip()
+    kb_id = (row.get("kb_id") or "").strip()
+    expected_doc = (row.get("expected_doc") or "").strip()
+    if not case_no:
+        return None, "缺少编号"
+    if len(case_no) > 16:
+        return None, "编号超过 16 字符"
+    if not question:
+        return None, "缺少问题"
+    if len(question) > 255:
+        return None, "问题超过 255 字符"
+    if kb_id not in {"shop", "enterprise"}:
+        return None, "kb_id 只能是 shop/enterprise"
+    if not expected_doc:
+        return None, "缺少期望来源"
+    if len(expected_doc) > 128:
+        return None, "期望来源超过 128 字符"
+    difficulty = _difficulty(row.get("difficulty"))
+    if difficulty not in {"easy", "normal", "hard"}:
+        return None, "difficulty 只能是 easy/normal/hard"
+    return (
+        {
+            "case_no": case_no,
+            "question": question,
+            "kb_id": kb_id,
+            "expected_doc": expected_doc,
+            "expected_keywords": (row.get("expected_keywords") or "").strip()[:255] or None,
+            "category": (row.get("category") or "").strip()[:32] or "未分类",
+            "difficulty": difficulty,
+        },
+        None,
+    )
+
+
+async def _assert_case_no_free(db, dataset_id: int, case_no: str, exclude_id: int | None = None) -> None:
+    query = select(EvalCase).where(
+        EvalCase.dataset_id == dataset_id, EvalCase.case_no == case_no
+    )
+    if exclude_id:
+        query = query.where(EvalCase.id != exclude_id)
+    exists = (await db.execute(query.limit(1))).scalar_one_or_none()
+    if exists is not None:
+        raise HTTPException(status_code=409, detail=f"用例编号 {case_no} 已存在")
+
+
+@router.post("/datasets/{dataset_id}/cases")
+async def create_case(dataset_id: int, payload: CasePayload):
+    async with SessionLocal() as db:
+        dataset = (
+            await db.execute(select(EvalDataset).where(EvalDataset.id == dataset_id))
+        ).scalar_one_or_none()
+        if dataset is None:
+            raise HTTPException(status_code=404, detail="数据集不存在")
+        await _assert_case_no_free(db, dataset_id, payload.case_no)
+        case = EvalCase(dataset_id=dataset_id, **payload.model_dump())
+        db.add(case)
+        await db.commit()
+        await db.refresh(case)
+    return _case_dict(case)
+
+
+@router.put("/cases/{case_id}")
+async def update_case(case_id: int, payload: CasePayload):
+    async with SessionLocal() as db:
+        case = (await db.execute(select(EvalCase).where(EvalCase.id == case_id))).scalar_one_or_none()
+        if case is None:
+            raise HTTPException(status_code=404, detail="用例不存在")
+        await _assert_case_no_free(db, case.dataset_id, payload.case_no, exclude_id=case_id)
+        for key, value in payload.model_dump().items():
+            setattr(case, key, value)
+        await db.commit()
+        await db.refresh(case)
+    return _case_dict(case)
+
+
+@router.delete("/cases/{case_id}")
+async def delete_case(case_id: int):
+    """删除用例并清理关联结果；历史 run 的汇总指标保持不变。"""
+    async with SessionLocal() as db:
+        case = (await db.execute(select(EvalCase).where(EvalCase.id == case_id))).scalar_one_or_none()
+        if case is None:
+            raise HTTPException(status_code=404, detail="用例不存在")
+        await db.execute(delete(EvalResult).where(EvalResult.case_id == case_id))
+        await db.execute(delete(EvalCaseReview).where(EvalCaseReview.case_id == case_id))
+        await db.execute(delete(EvalJudgment).where(EvalJudgment.case_id == case_id))
+        await db.delete(case)
+        await db.commit()
+    return {"deleted": case_id}
+
+
+@router.post("/datasets/{dataset_id}/cases/import")
+async def import_cases(dataset_id: int, payload: ImportRequest):
+    """CSV 导入：表头支持中英文，按 case_no 覆盖更新，失败行不阻断整批。"""
+    async with SessionLocal() as db:
+        dataset = (
+            await db.execute(select(EvalDataset).where(EvalDataset.id == dataset_id))
+        ).scalar_one_or_none()
+        if dataset is None:
+            raise HTTPException(status_code=404, detail="数据集不存在")
+
+        rows = list(csv.reader(io.StringIO(payload.csv.lstrip("\ufeff"))))
+        if not rows:
+            raise HTTPException(status_code=400, detail="CSV 为空")
+        header = [_CSV_FIELDS.get(h.strip().lower()) for h in rows[0]]
+        if "case_no" not in header or "question" not in header:
+            raise HTTPException(
+                status_code=400,
+                detail="首行必须为表头，且至少包含 case_no / question",
+            )
+
+        existing = {
+            c.case_no: c
+            for c in (
+                await db.execute(select(EvalCase).where(EvalCase.dataset_id == dataset_id))
+            ).scalars().all()
+        }
+        created = updated = 0
+        errors: list[str] = []
+        for index, raw in enumerate(rows[1:], start=2):
+            if not any(cell.strip() for cell in raw):
+                continue
+            record = {
+                header[i]: raw[i]
+                for i in range(min(len(header), len(raw)))
+                if header[i]
+            }
+            values, error = _parse_row(record)
+            if error:
+                errors.append(f"第 {index} 行：{error}")
+                continue
+            case = existing.get(values["case_no"])
+            if case is None:
+                case = EvalCase(dataset_id=dataset_id, **values)
+                db.add(case)
+                existing[values["case_no"]] = case
+                created += 1
+            else:
+                for key, value in values.items():
+                    setattr(case, key, value)
+                updated += 1
+        await db.commit()
+
+    return {
+        "created": created,
+        "updated": updated,
+        "failed": len(errors),
+        "errors": errors[:10],
+    }
+
+
+@router.get("/candidates")
+async def online_candidates(limit: int = Query(default=12, ge=1, le=50)):
+    """线上抽样：从 chat_trace 找尚未入库的真实问题，一键回灌金标集。"""
+    async with SessionLocal() as db:
+        known = {
+            (q or "").strip().lower()
+            for q in (await db.execute(select(EvalCase.question))).scalars().all()
+        }
+        traces = (
+            await db.execute(
+                select(ChatTrace).order_by(ChatTrace.id.desc()).limit(limit * 6)
+            )
+        ).scalars().all()
+
+    items: list[dict] = []
+    seen: set[str] = set()
+    for trace in traces:
+        question = (trace.question or "").strip()
+        key = question.lower()
+        if not question or key in known or key in seen:
+            continue
+        seen.add(key)
+        kb_id = "enterprise" if (trace.app or "").lower() == "enterprise" else "shop"
+        items.append(
+            {
+                "id": trace.id,
+                "question": question,
+                "app": trace.app,
+                "kb_id": kb_id,
+                "category": "商品咨询" if kb_id == "shop" else "制度咨询",
+                "status": trace.status,
+                "hits": trace.hits,
+                "tools": trace.tools,
+                "degraded": trace.degraded,
+                "created_at": _dt(trace.created_at),
+            }
+        )
+        if len(items) >= limit:
+            break
+    return {"candidates": items, "existing": len(known)}
+

@@ -308,6 +308,26 @@ CREATE TABLE eval_result (
   KEY idx_eval_result_case (case_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='评测用例结果';
 
+CREATE TABLE eval_judgment (
+  id           BIGINT       NOT NULL AUTO_INCREMENT,
+  run_id       BIGINT       NOT NULL,
+  case_id      BIGINT       NOT NULL,
+  case_no      VARCHAR(16)  NOT NULL,
+  question     VARCHAR(255) NOT NULL,
+  answer       TEXT         NOT NULL COMMENT '模型基于检索上下文生成的回答',
+  context_docs VARCHAR(255) DEFAULT NULL COMMENT '送进模型的来源文档',
+  faithful     TINYINT      NOT NULL DEFAULT 0 COMMENT '1=回答有上下文依据',
+  relevance    INT          NOT NULL DEFAULT 0 COMMENT '相关性 1-5',
+  citation_ok  TINYINT      NOT NULL DEFAULT 0 COMMENT '1=引用文档与期望来源一致',
+  verdict      VARCHAR(8)   NOT NULL DEFAULT 'fail' COMMENT 'pass/fail',
+  reason       VARCHAR(255) DEFAULT NULL,
+  latency_ms   INT          NOT NULL DEFAULT 0,
+  created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_eval_judgment_run_case (run_id, case_id),
+  KEY idx_eval_judgment_run (run_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='生成质量抽样评测（LLM 裁判）';
+
 CREATE TABLE eval_case_review (
   id         BIGINT       NOT NULL AUTO_INCREMENT,
   case_id    BIGINT       NOT NULL,
