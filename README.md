@@ -1,12 +1,12 @@
 # AnswerY智能客服中台
 
-> AnswerY = **Answer You**。一个自建 RAG + LangGraph Agent 的客服中台：**回答带出处、写操作先审批、全过程可回放**，覆盖电商导购与企业制度问答。
+> AnswerY = **Answer You**。一个 **Function Calling + pgvector 混合检索 + LangGraph Agent** 的客服中台：**回答带出处、写操作先审批、全过程可回放**，覆盖电商导购与企业制度问答。
 
 同一套 Agent 运行时、同一条检索链路、同一套鉴权与监控。工作台只有一个输入框——商品、订单、制度问题都能问，系统按语义判断该查文档还是调工具。
 
-其中最有辨识度的两层：**LLMWiki 关系知识层**（把文档组织成实体页 + wikilink/backlink，作为 RAG 之外的关系召回通道）与**评测中台**（48 条自建回归评测集 + 分场景切片 + LLM 裁判，让每次改检索都有数字依据）。
+招聘方一眼能对上的关键词这里都有：**Function Calling**（6 个业务工具，写操作先审批）、**pgvector + BM25 混合检索**（RRF 融合 + Rerank，回答带章节与页码）、**LangGraph Agent**（中断 / 恢复 + 检查点）、**可量化评测**（48 条回归集，Hit@5 100% / MRR 0.948）。在此之上还有一层 **LLMWiki 关系召回**，作为 RAG 之外的增强通道。
 
-![stack](https://img.shields.io/badge/React-18-149ECA) ![stack](https://img.shields.io/badge/Next.js-14-000000) ![stack](https://img.shields.io/badge/FastAPI-0.162-009688) ![stack](https://img.shields.io/badge/LangGraph-1.2-1C3C3C) ![stack](https://img.shields.io/badge/pgvector-0.8-336791)
+![stack](https://img.shields.io/badge/React-18-149ECA) ![stack](https://img.shields.io/badge/Next.js-14-000000) ![stack](https://img.shields.io/badge/FastAPI-0.162-009688) ![stack](https://img.shields.io/badge/LangGraph-1.2-1C3C3C) ![stack](https://img.shields.io/badge/Function%20Calling-1C3C3C) ![stack](https://img.shields.io/badge/pgvector-0.8-336791)
 
 ## 界面预览
 
@@ -18,13 +18,13 @@
 | --- | --- |
 | ![带出处的回答](docs/screenshots/03-answer.png) | ![运行监控](docs/screenshots/04-monitor.png) |
 
-| 知识网络（LLMWiki） | 评测中台 |
+| 知识网络（LLM Wiki 关系召回） | 评测中台 |
 | --- | --- |
 | ![知识网络](docs/screenshots/06-wiki.png) | ![评测中台](docs/screenshots/05-eval.png) |
 
-## LLMWiki：知识组织层，而不是再做一个向量库
+## LLMWiki：Karpathy 提出的 LLM Wiki 模式，本项目的关系召回增强
 
-普通 RAG 把文档切成互不相干的 chunk，能召回「一段话」，但接不住「轻云 Pro 的售后按哪份政策」「这条供应商问题最终该看哪份制度」这类**需要跨一篇取值**的问题。LLMWiki 在切片之上补了一层可读的知识组织：
+LLMWiki 不是自造词：它对应 Karpathy 提出的 **LLM Wiki** 模式——入库时把文档编译成带双向链接的持久 Wiki，查询时先命中实体、再沿链接取邻居；2026 年已有[论文](https://arxiv.org/pdf/2605.25480)把它系统化。普通 RAG 把文档切成互不相干的 chunk，能召回「一段话」，但接不住「轻云 Pro 的售后按哪份政策」「这条供应商问题最终该看哪份制度」这类**需要跨一篇取值**的问题。LLMWiki 在切片之上补了一层可读的知识组织：
 
 - **实体页**：店铺商品按 `pXXXX` 章节拆成独立商品页，五份政策各成一页；企业侧每份制度一个实体页。每页带标题、摘要、原文摘录与来源文档。
 - **别名索引**：文档编号（`YC-SH-005`）、文件名（`05_客服升级SOP`）、口语叫法（「退货政策」「商品知识库」）都会归一到同一实体，用户不必说全称。
