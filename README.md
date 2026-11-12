@@ -22,9 +22,9 @@
 | --- | --- |
 | ![知识网络](docs/screenshots/06-wiki.png) | ![评测中台](docs/screenshots/05-eval.png) |
 
-## LLMWiki：Karpathy 提出的 LLM Wiki 模式，本项目的关系召回增强
+## LLMWiki：RAG 之外的关系召回增强
 
-LLMWiki 不是自造词：它对应 Karpathy 提出的 **LLM Wiki** 模式——入库时把文档编译成带双向链接的持久 Wiki，查询时先命中实体、再沿链接取邻居；2026 年已有[论文](https://arxiv.org/pdf/2605.25480)把它系统化。普通 RAG 把文档切成互不相干的 chunk，能召回「一段话」，但接不住「轻云 Pro 的售后按哪份政策」「这条供应商问题最终该看哪份制度」这类**需要跨一篇取值**的问题。LLMWiki 在切片之上补了一层可读的知识组织：
+LLMWiki 对应 Karpathy 提出的 **LLM Wiki** 模式：入库时把文档编译成带双向链接的持久 Wiki，查询时先命中实体、再沿链接取邻居；相关做法可参考[这篇论文](https://arxiv.org/pdf/2605.25480)。普通 RAG 把文档切成互不相干的 chunk，能召回「一段话」，但接不住「轻云 Pro 的售后按哪份政策」「这条供应商问题最终该看哪份制度」这类**需要跨一篇取值**的问题。LLMWiki 在切片之上补了一层可读的知识组织：
 
 - **实体页**：店铺商品按 `pXXXX` 章节拆成独立商品页，五份政策各成一页；企业侧每份制度一个实体页。每页带标题、摘要、原文摘录与来源文档。
 - **别名索引**：文档编号（`YC-SH-005`）、文件名（`05_客服升级SOP`）、口语叫法（「退货政策」「商品知识库」）都会归一到同一实体，用户不必说全称。
@@ -37,7 +37,7 @@ LLMWiki 不是自造词：它对应 Karpathy 提出的 **LLM Wiki** 模式——
 
 ## 评测中台：让「回答变好」有数字依据
 
-大多数 RAG 项目停在「能问答、能引用」，但说不清改完提示词、切片或 rerank 参数之后**到底有没有变好**。这里补了一层可重复的检索评测：
+RAG 项目常见的问题是能问答、能引用，但说不清改完提示词、切片或 rerank 参数之后**到底有没有变好**。这里补了一层可重复的检索评测：
 
 - **48 条自建回归评测集 / 11 类场景**：商品、物流、售后、营销、尺码、关系推理，以及企业制度、信息安全、客服管理、人力资源、合规；每条绑定「必须命中的文档」，判定粒度为文档级。
 - **一次跑批 = 一次可对比的回归**：复用同一套检索组件（embedding + BM25 + RRF + rerank + LLMWiki 关系召回）按单库评测，线上为 shop / enterprise 两库各自召回后合并精排；逐条记录首中位次、TopK 来源、耗时与降级原因。
@@ -97,7 +97,7 @@ AnswerY 针对这三点做了完整闭环：**引用到章节与页码 → 工�
 
 - 意图路由：先判断「查知识 / 调工具 / 直答」，再决定是否进工具循环
 - 6 个业务工具：商品检索、商品详情、订单查询、店铺政策、优惠券、创建升级工单
-- **真实体归一**：问题里的商品名 / 订单号先做一次确定性解析，把真实 `product_id` 写进约束，避免模型瞎猜 ID
+- **实体归一**：问题里的商品名 / 订单号先做一次确定性解析，把真实 `product_id` 写进约束，避免模型瞎猜 ID
 
 ### 三、人工审批（HITL）
 
@@ -176,7 +176,7 @@ curl -X POST http://127.0.0.1:8000/api/sandbox/run \
 │ 知识组织 wiki_pages（实体页 / 别名） · wiki_links（wikilink / backlink） → 关系上下文         │
 │ 工具层   商品 / 订单 / 政策 / 优惠券 / 工单（Redis 幂等）                                     │
 │ 记账层   chat_history（Token 成本） · chat_trace（执行轨迹）                                  │
-│ 评测层   eval_case（金标） · eval_run（回归） · eval_result（下钻） · eval_judgment（裁判） · eval_case_review（复盘） │
+│ 评测层   eval_case（评测用例） · eval_run（回归） · eval_result（下钻） · eval_judgment（裁判） · eval_case_review（复盘） │
 └──────────┬───────────────────────┬──────────────────────────────┬───────────────────────────┘
            │                       │                              │
       MySQL 8                 Redis 7                    PostgreSQL + pgvector
@@ -193,7 +193,7 @@ curl -X POST http://127.0.0.1:8000/api/sandbox/run \
 │   │   ├── agent/          # LangGraph 图、工具、提示词
 │   │   ├── rag/            # 解析、切片、embedding、向量库、BM25、LLMWiki、检索编排
 │   │   ├── routers/        # chat / rag / wiki / admin / eval / auth / tickets / tools
-│   │   ├── evaluation.py   # 金标用例、跑批与指标汇总
+│   │   ├── evaluation.py   # 评测用例、跑批与指标汇总
 │   │   ├── eval_judge.py   # 生成质量抽样与 LLM 裁判
 │   │   ├── config.py       # 环境变量
 │   │   ├── models.py       # ORM

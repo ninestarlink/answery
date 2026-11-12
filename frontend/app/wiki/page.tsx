@@ -164,8 +164,8 @@ export default function WikiPage() {
               知识网络
             </h1>
             <p className="mt-1 max-w-[660px] text-[13px] leading-relaxed text-slate-600">
-              先把原文组织成实体页与关系边，检索时先命中实体，再沿一跳邻居补充召回。
-              RAG 仍是唯一召回通道，LLMWiki 负责「知识怎么连起来」。
+              先把原文组织成实体页与关系边；检索时先命中实体，再沿一跳邻居补充候选。
+              关系召回只做增强，向量 / BM25 主链路不变。
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
