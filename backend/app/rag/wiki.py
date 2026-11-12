@@ -3,7 +3,10 @@
 定位：不替代 RAG，而是把「文档切片」先组织成可读的实体页与关系边：
 - 商品页 → 退换货 / 配送 / 尺码政策；跑鞋之间互为同类对比；
 - 制度页 → 引用制度、脱敏与安全条款、绩效与晋升衔接；
-- 每个实体页带别名（文档编号、文件名、口语叫法），检索时先命中实体，再沿 1 跳关系取邻居。
+- 每个实体页带别名（文档编号、文件名、口语叫法），检索时先命中实体，再沿关系做 2 跳扩展。
+
+存储：实体页与关系边落在 Neo4j（`graph_store`），pgvector 只存切片与向量；
+Neo4j 不可用时退回 pg 副本，关系召回缺失但主检索链路不受影响。
 
 检索融合：关系召回只作为额外的一路候选，交给原来同一次 rerank 打分，
 向量 / BM25 / RRF / 精排顺序不变，因此不改变 RAG 主链路的既有行为。
@@ -21,7 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from ..config import settings
-from . import registry, store
+from . import graph_store, registry, store
 from .bm25 import BM25Index
 from .parser import DOC_NO_RE, parse_file
 
@@ -106,6 +109,15 @@ class _Link:
 
 def _norm(text: str) -> str:
     return _NORM_RE.sub("", (text or "").lower())
+
+
+def _as_text(value: Any) -> str | None:
+    """Neo4j 里 built_at 存字符串，pg 副本里是 datetime，统一成字符串输出。"""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    return value.isoformat(sep=" ", timespec="seconds")
 
 
 def _clean_title(name: str) -> str:
@@ -355,6 +367,14 @@ async def _ensure_schema(conn) -> None:
 
 
 async def _persist(kb_id: str, pages: list[_Page], links: list[_Link]) -> None:
+    # Neo4j 是关系层主存；写入失败时降级到 pg 副本，保证重建不会整体失败
+    if settings.neo4j_enabled:
+        try:
+            await graph_store.upsert_corpus(kb_id, pages, links)
+            return
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Neo4j 写入失败，关系数据改存 pg 副本：%s", exc)
+
     pool = await store.get_pool()
     async with pool.acquire() as conn:
         await _ensure_schema(conn)
@@ -418,6 +438,11 @@ async def build_all() -> list[dict[str, Any]]:
 
 
 async def _count_pages() -> int:
+    if settings.neo4j_enabled:
+        try:
+            return await graph_store.count_pages()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Neo4j 统计失败，改用 pg 副本：%s", exc)
     pool = await store.get_pool()
     async with pool.acquire() as conn:
         await _ensure_schema(conn)
@@ -444,6 +469,14 @@ async def _load(kb_id: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]
     cached = _cache.get(kb_id)
     if cached and time.time() - cached[0] < settings.wiki_cache_ttl:
         return cached[1], cached[2]
+    if settings.neo4j_enabled:
+        try:
+            pages, links = await graph_store.load_corpus(kb_id)
+            if pages:
+                _cache[kb_id] = (time.time(), pages, links)
+                return pages, links
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Neo4j 读取失败，回落 pg 副本：%s", exc)
     pool = await store.get_pool()
     async with pool.acquire() as conn:
         await _ensure_schema(conn)
@@ -468,12 +501,104 @@ async def _load(kb_id: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]
     return page_items, link_items
 
 
+def _adjacency(links: list[dict[str, Any]], by_slug: dict[str, dict[str, Any]]) -> dict[str, list[tuple[str, str]]]:
+    """把有向边展开成双向邻接表；反向边标注「被引用」，双向边只保留一次。"""
+    edge_set = {(link["source_slug"], link["target_slug"]) for link in links}
+    adj: dict[str, list[tuple[str, str]]] = {}
+    for link in links:
+        source, target = link["source_slug"], link["target_slug"]
+        if source not in by_slug or target not in by_slug:
+            continue
+        adj.setdefault(source, []).append((target, link["relation"]))
+        if (target, source) not in edge_set:
+            adj.setdefault(target, []).append((source, f"被引用（{link['relation']}）"))
+    return adj
+
+
+def _expand_local(
+    primary: list[str],
+    by_slug: dict[str, dict[str, Any]],
+    links: list[dict[str, Any]],
+    hops: int,
+) -> list[dict[str, Any]]:
+    """Neo4j 不可用时的兜底：在已加载的关系边上做 BFS，输出与图查询同构的路径。"""
+    adj = _adjacency(links, by_slug)
+    paths: list[dict[str, Any]] = []
+    for start in primary:
+        seen = {start}
+        frontier: list[tuple[str, list[str], list[str]]] = [(start, [], [start])]
+        for depth in range(1, hops + 1):
+            next_frontier: list[tuple[str, list[str], list[str]]] = []
+            for node, relations, nodes in frontier:
+                for target, relation in adj.get(node, []):
+                    if target in seen:
+                        continue
+                    seen.add(target)
+                    path = {
+                        "from_slug": start,
+                        "to_slug": target,
+                        "hops": depth,
+                        "nodes": nodes + [target],
+                        "relations": relations + [relation],
+                    }
+                    paths.append(path)
+                    next_frontier.append((target, path["relations"], path["nodes"]))
+            frontier = next_frontier
+    return paths
+
+
+def _paths_from_graph(
+    rows: list[dict[str, Any]],
+    by_slug: dict[str, dict[str, Any]],
+    edge_set: set[tuple[str, str]],
+) -> list[dict[str, Any]]:
+    """把 Cypher 返回的路径整理成统一结构，并按存储方向标注正向 / 反向关系。
+
+    无向遍历会把同一对实体的正反两条边都走一遍；若反向边存在显式正向边，
+    直接丢弃该路径，保持与旧的一跳召回一致的语义。
+    """
+    paths: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, int, tuple[str, ...]]] = set()
+    for row in rows:
+        nodes = list(row.get("nodes") or [])
+        sources = list(row.get("sources") or [])
+        relations: list[str] = []
+        duplicate = False
+        for index, relation in enumerate(row.get("relations") or []):
+            forward = index < len(sources) and index < len(nodes) and sources[index] == nodes[index]
+            if not forward and index + 1 < len(nodes) and (nodes[index + 1], nodes[index]) in edge_set:
+                duplicate = True
+                break
+            relations.append(relation if forward else f"被引用（{relation}）")
+        if duplicate:
+            continue
+        if len(nodes) < 2 or not all(slug in by_slug for slug in nodes):
+            continue
+        hops = int(row.get("hops") or len(relations) or 1)
+        key = (nodes[0], nodes[-1], hops, tuple(relations))
+        if key in seen:
+            continue
+        seen.add(key)
+        paths.append(
+            {
+                "from_slug": nodes[0],
+                "to_slug": nodes[-1],
+                "hops": hops,
+                "nodes": nodes,
+                "relations": relations,
+            }
+        )
+    # 先出边后入边、先近后远，避免被引用链把最有解释力的直接关系挤到后面
+    paths.sort(key=lambda item: (item["hops"], item["relations"][0].startswith("被引用")))
+    return paths
+
+
 def _empty(query: str = "") -> dict[str, Any]:
     return {"query": query, "pages": [], "paths": [], "context": "", "doc_names": []}
 
 
 async def retrieve(kb_id: str, query: str, limit: int | None = None) -> dict[str, Any]:
-    """关系召回：别名/标题命中 + 页正文 BM25 → 1 跳邻居 → 关系上下文。"""
+    """关系召回：别名/标题命中 + 页正文 BM25 → N 跳关系扩展 → 关系上下文。"""
     query = (query or "").strip()
     if not query:
         return _empty(query)
@@ -523,39 +648,41 @@ async def retrieve(kb_id: str, query: str, limit: int | None = None) -> dict[str
     if not primary:
         return _empty(query)
 
-    # 1 跳关系扩展：出边 + 入边，让「商品 → 政策」「制度 → 被引用制度」一起进入上下文
-    neighbours: dict[str, list[dict[str, str]]] = {}
-    seen_edges: dict[str, set[tuple[str, str]]] = {}
+    # N 跳关系扩展：优先在 Neo4j 图上做路径查询；图库不可用时退回关系边 BFS
+    hops = max(1, int(settings.wiki_hop))
     edge_set = {(link["source_slug"], link["target_slug"]) for link in links}
-    for link in links:
-        source, target = link["source_slug"], link["target_slug"]
-        if source in primary and target in by_slug:
-            item = {"to": target, "title": by_slug[target]["title"], "relation": link["relation"]}
-        elif target in primary and source in by_slug:
-            # 双向边只保留出边，避免「A 同类对比 B」和「B 被引用（同类对比）A」重复出现
-            if (target, source) in edge_set:
-                continue
-            item = {
-                "to": source,
-                "title": by_slug[source]["title"],
-                "relation": f"被引用（{link['relation']}）",
-            }
-        else:
-            continue
-        key = source if source in primary else target
-        pair = (item["to"], item["relation"])
-        if pair in seen_edges.setdefault(key, set()):
-            continue
-        seen_edges[key].add(pair)
-        neighbours.setdefault(key, []).append(item)
+    paths_raw: list[dict[str, Any]] | None = None
+    if settings.neo4j_enabled:
+        try:
+            rows = await graph_store.expand(primary, hops=hops, limit=240)
+            paths_raw = _paths_from_graph(rows, by_slug, edge_set)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Neo4j 关系扩展失败，改用本地 BFS：%s", exc)
+    if paths_raw is None:
+        paths_raw = _expand_local(primary, by_slug, links, hops)
 
-    linked: list[str] = []
-    if settings.wiki_hop >= 1:
-        for slug in primary:
-            for item in neighbours.get(slug, []):
-                if item["to"] not in primary:
-                    linked.append(item["to"])
-    linked = list(dict.fromkeys(linked))[: limit or settings.wiki_max_pages]
+    max_pages = limit or settings.wiki_max_pages
+    neighbours: dict[str, list[dict[str, str]]] = {}
+    seen_pairs: dict[str, set[tuple[str, str]]] = {}
+    distances: dict[str, int] = {}
+    for path in paths_raw:
+        start_slug, end_slug = path["from_slug"], path["to_slug"]
+        if start_slug not in primary:
+            continue
+        if path["hops"] == 1:
+            pair = (end_slug, path["relations"][0])
+            if pair in seen_pairs.setdefault(start_slug, set()):
+                continue
+            seen_pairs[start_slug].add(pair)
+            neighbours.setdefault(start_slug, []).append(
+                {"to": end_slug, "title": by_slug[end_slug]["title"], "relation": path["relations"][0]}
+            )
+        if end_slug in primary:
+            continue
+        if end_slug not in distances or path["hops"] < distances[end_slug]:
+            distances[end_slug] = path["hops"]
+
+    linked = sorted(distances, key=lambda slug: (distances[slug], slug))[: max_pages + 2]
 
     lines: list[str] = []
     for slug in primary:
@@ -567,13 +694,20 @@ async def retrieve(kb_id: str, query: str, limit: int | None = None) -> dict[str
         rels = neighbours.get(slug, [])[:4]
         if rels:
             lines.append("关系：" + "；".join(f"{item['relation']}→{item['title']}" for item in rels))
-    for slug in linked[:3]:
+    # 一跳关系最可靠，先占位；再补两条两跳桥接页，让跨制度的隐性关联也能进上下文
+    context_pages = linked[:3]
+    for slug in [item for item in linked if distances[item] >= 2][:2]:
+        if slug not in context_pages:
+            context_pages.append(slug)
+    for slug in context_pages:
         page = by_slug[slug]
-        lines.append(f"关联页：{page['title']}｜{page['summary'] or ''}".rstrip("｜"))
+        lines.append(
+            f"关联页（{distances[slug]} 跳）：{page['title']}｜{page['summary'] or ''}".rstrip("｜")
+        )
 
     context = "\n".join(lines)[: settings.wiki_context_chars]
     doc_names: list[str] = []
-    # 主实体 + 一跳邻居的原文都进入候选：问商品售后时，真正的答案在「退换货政策」文档里
+    # 主实体 + 关系邻居的原文都进入候选：问商品售后时，真正的答案在「退换货政策」文档里
     for slug in primary + linked:
         doc_names.extend(by_slug[slug]["source_docs"])
     doc_names = list(dict.fromkeys(doc_names))[:6]
@@ -601,17 +735,27 @@ async def retrieve(kb_id: str, query: str, limit: int | None = None) -> dict[str
                 "page_type": by_slug[slug]["page_type"],
                 "summary": by_slug[slug]["summary"],
                 "aliases": by_slug[slug]["aliases"][:6],
-                "distance": 1,
+                "distance": distances[slug],
                 "matched": None,
                 "relations": [],
             }
             for slug in linked
         ],
         "paths": [
-            {"from": slug, "from_title": by_slug[slug]["title"], "relation": item["relation"], "to": item["to"], "to_title": item["title"]}
-            for slug in primary
-            for item in neighbours.get(slug, [])[:4]
-        ],
+            {
+                "from": path["from_slug"],
+                "from_title": by_slug[path["from_slug"]]["title"],
+                "relation": " → ".join(path["relations"]),
+                "to": path["to_slug"],
+                "to_title": by_slug[path["to_slug"]]["title"],
+                "hops": path["hops"],
+                "via": [by_slug[slug]["title"] for slug in path["nodes"][1:-1]],
+            }
+            for path in paths_raw
+            if path["from_slug"] in primary
+            # 终点已有更短路径时不再重复列出（避免 1 跳可达的关系又用 2 跳展示一遍）
+            and path["hops"] == distances.get(path["to_slug"], path["hops"])
+        ][:24],
         "context": context,
         "doc_names": doc_names,
     }
@@ -619,56 +763,38 @@ async def retrieve(kb_id: str, query: str, limit: int | None = None) -> dict[str
 
 async def stats(kb_id: str | None = None) -> dict[str, Any]:
     """控制台概览：页数、边数、别名数、类型分布与入度最高的实体。"""
-    pool = await store.get_pool()
-    async with pool.acquire() as conn:
-        await _ensure_schema(conn)
-        where = "WHERE kb_id=$1" if kb_id else ""
-        args = [kb_id] if kb_id else []
-        page_count = int(await conn.fetchval(f"SELECT count(*) FROM wiki_pages {where}", *args) or 0)
-        link_count = int(await conn.fetchval(f"SELECT count(*) FROM wiki_links {where}", *args) or 0)
-        alias_count = int(
-            await conn.fetchval(
-                f"SELECT coalesce(sum(cardinality(aliases)), 0) FROM wiki_pages {where}", *args
-            )
-            or 0
-        )
-        doc_count = int(
-            await conn.fetchval(
-                f"SELECT count(DISTINCT doc) FROM (SELECT unnest(source_docs) AS doc FROM wiki_pages {where}) t",
-                *args,
-            )
-            or 0
-        )
-        built_at = await conn.fetchval(f"SELECT max(built_at) FROM wiki_pages {where}", *args)
-        types = await conn.fetch(
-            f"SELECT page_type, count(*) AS pages FROM wiki_pages {where} GROUP BY page_type", *args
-        )
+    kb_ids = [kb_id] if kb_id else list(registry.KBS)
+    pages: list[dict[str, Any]] = []
+    links: list[dict[str, Any]] = []
+    for item in kb_ids:
+        item_pages, item_links = await _load(item)
+        pages.extend(item_pages)
+        links.extend(item_links)
 
-        hub_where = "AND l.kb_id=$1" if kb_id else ""
-        hubs = await conn.fetch(
-            f"""
-            SELECT p.title, p.slug, count(*) AS backlinks
-            FROM wiki_links l JOIN wiki_pages p ON p.slug = l.target_slug
-            WHERE TRUE {hub_where}
-            GROUP BY p.title, p.slug
-            ORDER BY backlinks DESC, p.title
-            LIMIT 6
-            """,
-            *args,
-        )
+    incoming: dict[str, int] = {}
+    for link in links:
+        incoming[link["target_slug"]] = incoming.get(link["target_slug"], 0) + 1
+    types: dict[str, int] = {}
+    for page in pages:
+        types[page["page_type"]] = types.get(page["page_type"], 0) + 1
+    built = [_as_text(page.get("built_at")) for page in pages if page.get("built_at")]
+    hubs = sorted(
+        (
+            {"title": page["title"], "slug": page["slug"], "backlinks": incoming.get(page["slug"], 0)}
+            for page in pages
+        ),
+        key=lambda item: (-item["backlinks"], item["title"]),
+    )[:6]
 
     return {
         "kb_id": kb_id,
-        "pages": page_count,
-        "links": link_count,
-        "aliases": alias_count,
-        "docs": doc_count,
-        "types": [{"page_type": row["page_type"], "pages": int(row["pages"])} for row in types],
-        "hubs": [
-            {"title": row["title"], "slug": row["slug"], "backlinks": int(row["backlinks"])}
-            for row in hubs
-        ],
-        "built_at": built_at.isoformat(sep=" ", timespec="seconds") if built_at else None,
+        "pages": len(pages),
+        "links": len(links),
+        "aliases": sum(len(page["aliases"]) for page in pages),
+        "docs": len({doc for page in pages for doc in page["source_docs"]}),
+        "types": [{"page_type": key, "pages": value} for key, value in sorted(types.items())],
+        "hubs": hubs,
+        "built_at": max(built) if built else None,
     }
 
 
@@ -710,6 +836,13 @@ async def list_pages(
 
 
 async def get_page(slug: str) -> dict[str, Any] | None:
+    if settings.neo4j_enabled:
+        try:
+            data = await graph_store.page_detail(slug)
+            if data is not None:
+                return data
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Neo4j 实体页读取失败，回落 pg 副本：%s", exc)
     pool = await store.get_pool()
     async with pool.acquire() as conn:
         await _ensure_schema(conn)

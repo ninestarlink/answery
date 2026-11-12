@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from ..config import settings
-from ..rag import registry, wiki
+from ..rag import graph_store, registry, wiki
 from .auth import require_admin
 
 logger = logging.getLogger("wiki.api")
@@ -77,7 +77,7 @@ async def search(
     q: str = Query(min_length=1, max_length=120),
     kb_id: str = Query(default="all"),
 ):
-    """关系检索：实体命中 + 1 跳邻居 + 可注入提示词的关系上下文。"""
+    """关系检索：实体命中 + N 跳邻居（默认 2 跳）+ 可注入提示词的关系上下文。"""
     _assert_kb(kb_id)
     targets = list(registry.KBS) if kb_id == "all" else [kb_id]
     items: list[dict] = []
@@ -99,6 +99,24 @@ async def search(
         "paths": paths[:12],
         "context": "\n\n".join(contexts)[: settings.wiki_context_chars * 2],
     }
+
+
+@router.get("/path")
+async def explain_path(
+    from_slug: str = Query(alias="from", min_length=1, max_length=80),
+    to_slug: str = Query(alias="to", min_length=1, max_length=80),
+    max_hops: int = Query(default=3, ge=1, le=4),
+):
+    """路径解释：两个实体在 Neo4j 上的最短关系链（方向无关，最多 4 跳）。"""
+    if not settings.neo4j_enabled:
+        raise HTTPException(status_code=503, detail="Neo4j 未启用，路径解释不可用")
+    try:
+        data = await graph_store.shortest_path(from_slug, to_slug, max_hops)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=503, detail=f"图查询不可用：{exc}") from exc
+    if data is None:
+        raise HTTPException(status_code=404, detail="两个实体之间没有可达路径")
+    return {"from": from_slug, "to": to_slug, **data}
 
 
 @router.get("/graph")

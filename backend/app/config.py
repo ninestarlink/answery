@@ -68,8 +68,8 @@ class Settings(BaseSettings):
     # 实体页 + wikilink/backlink 做知识组织，检索时作为额外的关系召回通道，
     # 与向量 / BM25 共用同一次 rerank，不替换原混合检索。
     wiki_enabled: bool = True
-    # 关系扩展跳数：1 跳足够覆盖「商品 → 售后政策」「制度 → 引用制度」
-    wiki_hop: int = 1
+    # 关系扩展跳数：2 跳覆盖「商品 → 售后政策」「制度 A → 制度 B → 引用制度 C」
+    wiki_hop: int = 2
     # 单次关系检索最多带出的实体页数量
     wiki_max_pages: int = 4
     # 关系上下文注入提示词的最大字符数

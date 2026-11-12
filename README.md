@@ -1,10 +1,10 @@
 # AnswerY智能客服中台
 
-> AnswerY = **Answer You**。一个 **Function Calling + pgvector 混合检索 + LangGraph Agent** 的客服中台：**回答带出处、写操作先审批、全过程可回放**，覆盖电商导购与企业制度问答。
+> AnswerY = **Answer You**。一个 **Function Calling + pgvector 混合检索 + Neo4j 知识图谱 + LangGraph Agent** 的客服中台：**回答带出处、写操作先审批、全过程可回放**，覆盖电商导购与企业制度问答。
 
 同一套 Agent 运行时、同一条检索链路、同一套鉴权与监控。工作台只有一个输入框——商品、订单、制度问题都能问，系统按语义判断该查文档还是调工具。
 
-现在的主线能力：**混合检索（pgvector + BM25 + RRF + rerank）→ 引用到章节页码 → 8 个工具 → 写操作 HITL 审批 → 轨迹落库**；外层配 **48 条回归评测（Hit@5 100% / MRR 0.948）**、**APScheduler 运营自动化** 和 **可替换的 ERP 适配层（内置 Mock ERP）**。LLMWiki 关系召回作为检索增强保留，不启用时主链路照常工作。
+现在的主线能力：**混合检索（pgvector + BM25 + RRF）→ Neo4j 图谱关系召回（实体命中 → 2 跳扩展 → 路径解释）→ rerank → 引用到章节页码 → 8 个工具 → 写操作 HITL 审批 → 轨迹落库**；外层配 **48 条回归评测（Hit@5 100% / MRR 0.948）**、**APScheduler 运营自动化** 和 **可替换的 ERP 适配层（内置 Mock ERP）**。关系召回是一路可关的增强通道：`WIKI_ENABLED=false` 时主链路照常工作，Neo4j 不可用时退回 pg 副本并降级为纯检索。
 
 ![stack](https://img.shields.io/badge/React-18-149ECA) ![stack](https://img.shields.io/badge/Next.js-14-000000) ![stack](https://img.shields.io/badge/FastAPI-0.162-009688) ![stack](https://img.shields.io/badge/LangGraph-1.2-1C3C3C) ![stack](https://img.shields.io/badge/Function%20Calling-1C3C3C) ![stack](https://img.shields.io/badge/HITL-Approval-6E4AFF) ![stack](https://img.shields.io/badge/ERP-Adapter-0B7285) ![stack](https://img.shields.io/badge/pgvector-0.8-336791)
 
@@ -17,13 +17,13 @@
 | 引用溯源 | 回答标注「文档名 / 编号 / 版本 / 章节 / 页码」 | 已实现 |
 | 业务工具 | 商品检索、商品详情、ERP 实时库存、订单、政策、优惠券、工单、自动化触发 | 8 个 |
 | 写操作审批 | `interrupt()` 暂停 → 前端批准 / 拒绝 → `resume` 恢复 | 已实现 |
-| 知识关系层 | `wiki_pages / wiki_links` 实体页、别名、wikilink / backlink、关系召回 | 已实现（增强项） |
+| 知识关系层 | Neo4j 实体页 + 有向关系边、别名归一、wikilink / backlink、2 跳关系召回与关系上下文 | 已实现 |
 | 评测中台 | 48 条 / 11 类，Hit@5 100%、MRR 0.948，A/B、门禁、LLM 裁判、复盘导出 | 已实现 |
 | 运营自动化 | 3 个定时任务、运行历史、Agent 触发、Excel 导出 | 已实现 |
 | ERP 集成 | 适配层 + Mock ERP，`local / mock / http` 三模式，故障降级并标注来源，只读演示页 | 已实现（模拟数据） |
 | 代码沙箱 | Docker 隔离执行 Python / Node，禁网、只读、超时重建 | 已实现（可选） |
 | 可观测与安全 | `chat_trace`、JWT + RBAC、工具幂等、会话与全站额度 | 已实现 |
-| Neo4j 知识图谱 | 连接与健康检查 | Phase 0，未接检索 |
+| Neo4j 知识图谱 | 实体页 / 关系边主存、Cypher 2 跳扩展、最短路径解释、健康检查与监控 | 已实现 |
 
 ## 界面预览
 
@@ -43,7 +43,7 @@
 | --- | --- |
 | ![运营自动化](docs/screenshots/08-automation.png) | ![ERP 集成](docs/screenshots/07-erp.png) |
 
-> 截图来自本机演示环境，数据均为虚构。Neo4j 目前只有连接与健康检查、没有独立页面，因此不放进界面预览。
+> 截图来自本机演示环境，数据均为虚构。Neo4j 没有独立页面，图谱数据通过「知识网络」页的实体页、出边 / 入边与关系路径展示。
 
 ## 知识关系层（LLMWiki）：RAG 之外的召回增强
 
@@ -54,11 +54,11 @@ LLMWiki 对应 Karpathy 提出的 **LLM Wiki** 模式：入库时把文档编译
 - **实体页**：店铺商品按 `pXXXX` 章节拆成独立商品页，五份政策各成一页；企业侧每份制度一个实体页。每页带标题、摘要、原文摘录与来源文档。
 - **别名索引**：文档编号（`YC-SH-005`）、文件名（`05_客服升级SOP`）、口语叫法（「退货政策」「商品知识库」）都会归一到同一实体，用户不必说全称。
 - **有向关系**：商品 → 售后 / 配送 / 尺码政策，跑鞋之间互为「同类对比」，制度里点名的《X 办法》与文档编号自动生成「引用制度」边，另有少量业务补边（绩效 ↔ 晋升、安全 ↔ 数据合规）。反向关系自动生成 backlink。
-- **关系召回通道**：检索时先按标题 / 别名 / 摘要 BM25 命中实体页，再沿 1 跳邻居把相关制度页带出来，取这些页对应的原文章节作为**额外候选**，与原向量 / BM25 候选一起走同一次 rerank。RAG 主链路、RRF 与精排阈值不变；实体命中只给原文章节一个很小的先验加成，排序仍由精排决定。
-- **关系上下文**：把「实体摘要 + 关系路径 + 邻居摘要」压缩成一段 `【LLMWiki 关系知识】` 注入提示词，回答能说清「依据哪份制度、和哪条政策相关」。
-- **后台索引**：`wiki_pages / wiki_links` 两张表，启动时若为空则后台自动构建，不阻塞服务；管理端可一键重建，失败不影响 RAG 降级。
+- **关系召回通道**：检索时先按标题 / 别名 / 摘要 BM25 命中实体页，再到 Neo4j 图上做 2 跳扩展（`WIKI_HOP=2`，Cypher 查询），取扩展到的页对应原文章节作为**额外候选**，与原向量 / BM25 候选一起走同一次 rerank。RAG 主链路、RRF 与精排阈值不变；实体命中只给原文章节一个很小的先验加成，排序仍由精排决定。
+- **关系上下文**：把「实体摘要 + 关系路径（含两跳桥接）+ 邻居摘要」压缩成一段 `【LLMWiki 关系知识】` 注入提示词，回答能说清「依据哪份制度、和哪条政策相关」。
+- **后台索引**：实体页与关系边写入 Neo4j（`Entity` 节点 + `RELATED` 边），启动时若为空则后台自动构建，不阻塞服务；pg 的 `wiki_pages / wiki_links` 保留为副本，Neo4j 不可用时回落，管理端可一键重建。
 
-前端「知识网络」页可直接演示：左侧实体列表与类型筛选，右侧实体页的别名、出边、入边与原文摘录，顶部搜索框跑关系检索并展示「命中 → 一跳」路径和最终上下文。管理接口（均需管理员 Token）：`GET /api/admin/wiki/overview`、`GET /api/admin/wiki/pages`、`GET /api/admin/wiki/pages/{slug}`、`GET /api/admin/wiki/search`、`GET /api/admin/wiki/graph`、`POST /api/admin/wiki/rebuild`。
+前端「知识网络」页可直接演示：左侧实体列表与类型筛选，右侧实体页的别名、出边、入边与原文摘录，顶部搜索框跑关系检索并展示「命中 → 一跳 / 两跳」路径和最终上下文。管理接口（均需管理员 Token）：`GET /api/admin/wiki/overview`、`GET /api/admin/wiki/pages`、`GET /api/admin/wiki/pages/{slug}`、`GET /api/admin/wiki/search`、`GET /api/admin/wiki/path`、`GET /api/admin/wiki/graph`、`POST /api/admin/wiki/rebuild`。
 
 ## 评测中台：让「回答变好」有数字依据
 
@@ -179,13 +179,14 @@ curl -X POST http://127.0.0.1:8000/api/sandbox/run \
 - **报告导出**：CSV 带 BOM（UTF-8），含场景、位次、耗时、复盘状态与 TopK 来源，可直接进 Excel 或周报
 - **可下钻**：每条用例显示期望文档、实际 Top1、首中位次、耗时和完整 TopK 来源，便于 bad case 复盘
 
-### 七、LLMWiki 关系知识层
+### 七、Neo4j 知识图谱（LLMWiki 关系层）
 
 - **实体页而不是纯切片**：商品按 `pXXXX` 独立成页、政策与制度各自成页，页面带摘要、原文摘录、来源文档与别名
 - **别名归一**：文档编号、文件名、口语叫法（「退货政策」「商品知识库」）都指向同一实体，问法不必和文件标题一致
 - **wikilink / backlink**：商品 → 售后 / 配送 / 尺码，跑鞋同类对比，制度引用制度（《X 办法》、`YC-XXX-###`），业务补边（绩效 ↔ 晋升、安全 ↔ 数据合规）
-- **关系召回**：实体命中 → 1 跳邻居 → 取对应原文章节作为额外候选，与原向量 / BM25 候选一起 rerank；关系上下文以 `【LLMWiki 关系知识】` 注入提示词
-- **可运维**：`wiki_pages / wiki_links` 自动建表，启动后台自检构建，管理端一键重建；「知识网络」页可视化实体、别名、出边与入边
+- **图存储与遍历**：实体页、有向关系边落在 Neo4j（`Entity` + `RELATED`），当前语料 22 个实体 / 42 条边；关系扩展用 Cypher 做 2 跳查询，`GET /api/admin/wiki/path` 用 `shortestPath` 解释「这两个东西为什么相关」
+- **关系召回**：实体命中 → Neo4j 2 跳扩展 → 取对应原文章节作为额外候选，与原向量 / BM25 候选一起 rerank；关系上下文以 `【LLMWiki 关系知识】` 注入提示词
+- **可运维**：启动后台自检构建，管理端一键重建；Neo4j 不可用时写读自动回落到 pg 副本，关系通道降级但主检索不受影响；「知识网络」页可视化实体、别名、出边与入边
 
 ### 八、运营自动化
 
@@ -225,28 +226,28 @@ curl -X POST http://127.0.0.1:8000/api/sandbox/run \
 
 ```text
 ┌─────────────── 浏览器（Next.js 14 / React 18） ─────────────────────────────────────────────────────────────────────────────┐
-│ 统一工作台：混合问答 · 审批卡片 · 来源卡片 · 知识库 · 知识网络 · 监控 · 评测 · 自动化 · ERP 集成                           │
+│ 统一工作台：混合问答 · 审批卡片 · 来源卡片 · 知识库 · 知识网络 · 监控 · 评测 · 自动化 · ERP 集成                            │
 └───────────────┬─────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
                 │ 同源 /api（rewrites 转发，避免跨域）
 ┌───────────────▼────────────────────────────────────────── FastAPI ──────────────────────────────────────────────────────────┐
 │ 鉴权层   JWT + bcrypt + RBAC                      SSE 层   统一事件帧（status / message / …）                               │
 │ ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── │
 │ 编排层   LangGraph：route → agent ⇄ tools → approval(interrupt) → resume                                                    │
-│ 检索层   解析 → 父子切片 → embedding → pgvector + BM25 → RRF → LLMWiki 关系召回 → rerank → 证据链                           │
-│ 知识组织 wiki_pages（实体页 / 别名） · wiki_links（wikilink / backlink） → 关系上下文                                       │
-│ 图谱层   Neo4j 连接 / 健康检查 / 监控展示（Phase 0；实体页与关系边读写待 Phase 1 接入）                                     │
+│ 检索层   解析 → 父子切片 → embedding → pgvector + BM25 → RRF → Neo4j 2 跳关系召回 → rerank → 证据链                         │
+│ 知识组织 实体页 / 别名 / wikilink / backlink 存 Neo4j；pgvector 只存切片与向量 → 关系上下文                                 │
+│ 图谱层   Neo4j：实体页与关系边主存 · 2 跳扩展 · 路径解释（不可用时退回 pg 副本）                                            │
 │ 工具层   商品 / 订单 / 政策 / 优惠券 / 工单（Redis 幂等） / 自动化任务触发 / ERP 适配层                                     │
 │ 记账层   chat_history（Token 成本） · chat_trace（执行轨迹）                                                                │
 │ 评测层   eval_case（用例） · eval_run（回归） · eval_result（下钻） · eval_judgment（裁判） · eval_case_review（复盘）      │
 │ 调度层   APScheduler 定时任务（知识库同步 / 夜间回归 / 工单巡检） → automation_runs（运行历史 + 幂等键）                    │
 └────────────────┬───────────────────────────┬─────────────────────────────┬────────────────────────────────┬─────────────────┘
                  │                           │                             │                                │
-       MySQL 8                   Redis 7                       PostgreSQL + pgvector          Neo4j 5.26
-      业务库 / 会话 / 轨迹      历史上下文 / 额度 / 幂等      知识库向量（端口 5433）        连接 / 健康检查 / 监控
-                                                              + wiki_pages / wiki_links      Phase 0 · 实体与关系未接检索
+       MySQL 8                   Redis 7                       PostgreSQL + pgvector                Neo4j 5.26
+      业务库 / 会话 / 轨迹      历史上下文 / 额度 / 幂等      知识库向量（端口 5433）              图存储 / 2 跳扩展
+                                                              + wiki_pages / wiki_links           实体页 / 关系边 / 最短路径
 ```
 
-> Neo4j 目前只做连接与健康检查（Phase 0）：图中的「图谱层」与 Neo4j 分支代表已接入的依赖与自检，知识关系实际仍存放在 pgvector 的 `wiki_pages / wiki_links`。实体页 / 关系边读写与图检索在 Phase 1 接入主链路之前，不作为已具备的能力对外描述。
+> Neo4j 是关系层主存：实体页与 `RELATED` 关系边写入 `Entity` 节点，关系召回用 Cypher 做 2 跳扩展，`/api/admin/wiki/path` 用 `shortestPath` 解释两个实体为什么相关。pg 的 `wiki_pages / wiki_links` 保留为副本，Neo4j 不可用时自动回落，主检索链路（向量 + BM25 + RRF + rerank）不受影响。
 
 ## 目录结构
 
@@ -255,7 +256,7 @@ curl -X POST http://127.0.0.1:8000/api/sandbox/run \
 ├── backend/
 │   ├── app/
 │   │   ├── agent/          # LangGraph 图、工具、提示词
-│   │   ├── rag/            # 解析、切片、embedding、向量库、BM25、LLMWiki、检索编排
+│   │   ├── rag/            # 解析、切片、embedding、向量库、BM25、Neo4j 图存储、LLMWiki 关系召回、检索编排
 │   │   ├── routers/        # chat / rag / wiki / admin / eval / automation / auth / tickets / tools / erp
 │   │   ├── integrations/   # ERP 适配层（契约 / 映射 / Mock 服务 / HTTP 客户端）
 │   │   ├── services/       # 自动化任务注册表、幂等执行与调度器生命周期
@@ -267,7 +268,7 @@ curl -X POST http://127.0.0.1:8000/api/sandbox/run \
 │   │   └── main.py         # 应用入口与健康检查
 │   ├── db/                 # 建表与种子数据（首次启动自动执行）
 │   ├── scripts/            # 冒烟测试、检索评测、评测中台初始化、沙箱验收
-│   └── docker-compose.yml  # MySQL / Redis / pgvector
+│   └── docker-compose.yml  # MySQL / Redis / pgvector / Neo4j
 ├── frontend/               # Next.js 14 App Router
 │   ├── app/                # 页面：工作台、知识库、知识网络、监控、评测中台、运营自动化、ERP 集成、登录
 │   ├── components/         # 对话、消息、审批卡、来源卡、侧栏
@@ -324,7 +325,7 @@ Windows 用户也可以直接双击 `start-demo.bat`（需 Node 已在 PATH 中�
 | `SILICONFLOW_EMBEDDING_MODEL` / `SILICONFLOW_RERANK_MODEL` | 向量与精排模型，默认 `bge-m3` / `bge-reranker-v2-m3`，缺失时检索降级为 BM25 |
 | `EMBEDDING_PROVIDER` | 向量/精排供应商，默认 `siliconflow`，可切回 `zhipu` |
 | `PG_DSN` | pgvector 连接串（容器端口 5433） |
-| `NEO4J_URI` / `NEO4J_USER` / `NEO4J_PASSWORD` | 知识图谱连接（容器端口 7687）；当前仅连接与健康检查，关系检索尚未接入 |
+| `NEO4J_URI` / `NEO4J_USER` / `NEO4J_PASSWORD` | 知识图谱连接（容器端口 7687），实体页 / 关系边主存与 2 跳关系扩展 |
 | `HISTORY_ROUNDS` | 携带的历史轮数，默认 3 |
 | `ERP_MODE` | `local` / `mock` / `http`，默认 `mock`（内置虚构 ERP，开箱即用） |
 | `ERP_BASE_URL` / `ERP_API_TOKEN` | 真实 ERP 网关地址与令牌（`ERP_MODE=http` 时必填） |
@@ -340,7 +341,7 @@ Windows 用户也可以直接双击 `start-demo.bat`（需 Node 已在 PATH 中�
 | GET | `/api/rag/kbs/{kb_id}/documents` | 知识库文档清单 |
 | GET | `/api/admin/wiki/overview` | 实体页 / 关系边 / 别名规模与核心实体（admin） |
 | GET | `/api/admin/wiki/pages` `/pages/{slug}` | 实体页列表与详情（出边 / 入边 / 别名，admin） |
-| GET | `/api/admin/wiki/search` `/graph` | 关系检索与关系图（admin） |
+| GET | `/api/admin/wiki/search` `/graph` `/path` | 关系检索、关系图与两实体间最短关系路径（admin） |
 | POST | `/api/admin/wiki/rebuild` | 重建关系索引，不影响向量索引（admin） |
 | GET | `/api/admin/traces` | 最近对话轨迹（admin） |
 | GET | `/api/admin/automation/jobs` | 定时任务清单与下次执行时间（admin） |

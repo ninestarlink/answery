@@ -276,7 +276,7 @@ export default function WikiPage() {
                       >
                         {page.title}
                         <span className="ml-1 font-mono text-[10px] text-muted">
-                          {page.distance === 0 ? '命中' : '一跳'}
+                          {page.distance === 0 ? '命中' : page.distance === 1 ? '一跳' : `${page.distance} 跳`}
                         </span>
                       </button>
                     ))}
