@@ -1,4 +1,4 @@
-"""LLMWiki：知识组织层（实体页 + wikilink / backlink / 别名 + 关系召回）。
+"""知识图谱关系层：知识组织层（实体页 + wikilink / backlink / 别名 + 关系召回）。
 
 定位：不替代 RAG，而是把「文档切片」先组织成可读的实体页与关系边：
 - 商品页 → 退换货 / 配送 / 尺码政策；跑鞋之间互为同类对比；
@@ -231,7 +231,7 @@ def _build_corpus(kb_id: str) -> tuple[list[_Page], list[_Link]]:
         try:
             doc = parse_file(path)
         except Exception as exc:  # 单个文件解析失败不阻断整库
-            logger.warning("LLMWiki 解析失败 %s：%s", path.name, exc)
+            logger.warning("知识图谱关系层解析失败 %s：%s", path.name, exc)
             continue
 
         stem = _stem_title(path)
@@ -426,7 +426,7 @@ async def build_kb(kb_id: str) -> dict[str, Any]:
             "aliases": sum(len(p.aliases) for p in pages),
             "docs": len({d for p in pages for d in p.source_docs}),
         }
-        logger.info("LLMWiki 重建完成：%s", summary)
+        logger.info("知识图谱关系层重建完成：%s", summary)
         return summary
 
 
@@ -462,7 +462,7 @@ async def ensure_built() -> None:
             if await _count_pages() == 0:
                 await build_all()
         except Exception as exc:  # noqa: BLE001
-            logger.warning("LLMWiki 自动构建失败（可稍后手动重建）：%s", exc)
+            logger.warning("知识图谱关系层自动构建失败（可稍后手动重建）：%s", exc)
 
 
 async def _load(kb_id: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -688,7 +688,7 @@ async def retrieve(kb_id: str, query: str, limit: int | None = None) -> dict[str
     for slug in primary:
         page = by_slug[slug]
         label = _TYPE_LABELS.get(page["page_type"], page["page_type"])
-        lines.append(f"[LLMWiki · {label}] {page['title']}")
+        lines.append(f"[知识图谱 · {label}] {page['title']}")
         if page["summary"]:
             lines.append(f"摘要：{page['summary']}")
         rels = neighbours.get(slug, [])[:4]

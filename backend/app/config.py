@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     # 送进模型的上下文最大字符数
     rag_max_chars: int = 3200
 
-    # ---------- LLMWiki 关系知识层 ----------
+    # ---------- 知识图谱关系层 ----------
     # 实体页 + wikilink/backlink 做知识组织，检索时作为额外的关系召回通道，
     # 与向量 / BM25 共用同一次 rerank，不替换原混合检索。
     wiki_enabled: bool = True

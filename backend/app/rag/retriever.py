@@ -215,7 +215,7 @@ async def search(
     sparse_ids = [chunk_id for chunk_id, _ in sparse]
     sparse_rows = {r["chunk_id"]: r for r in sparse_rows_map}
 
-    # LLMWiki 关系召回：先命中实体页，再把实体页对应的原文章节作为额外候选。
+    # 知识图谱关系召回：先命中实体页，再把实体页对应的原文章节作为额外候选。
     # 它只是多一路召回，最终仍与向量 / BM25 候选一起走同一次 rerank。
     wiki_result: dict[str, Any] | None = None
     if settings.wiki_enabled:
@@ -224,7 +224,7 @@ async def search(
             wiki_result = await wiki.retrieve(kb_id, query)
             timings["wiki_ms"] = int((time.perf_counter() - t0) * 1000)
         except Exception as exc:  # noqa: BLE001
-            degraded.append(f"LLMWiki 不可用：{exc}")
+            degraded.append(f"知识图谱不可用：{exc}")
 
     fused = _rrf_merge(dense, sparse_ids, sparse_rows, settings.rag_rrf_k)
     candidates = fused[: max(settings.rag_rerank_top_k * 3, 20)]
@@ -329,7 +329,7 @@ async def search(
     # 关系上下文只做组织层补充，放在原文之后、受总字符预算约束
     wiki_context = (wiki_result or {}).get("context") or ""
     if wiki_context:
-        block = f"【LLMWiki 关系知识】\n{wiki_context}"
+        block = f"【知识图谱关系知识】\n{wiki_context}"
         if used + len(block) <= settings.rag_max_chars or not context_parts:
             context_parts.append(block)
 

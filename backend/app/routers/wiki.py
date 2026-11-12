@@ -1,4 +1,4 @@
-"""LLMWiki 管理接口：总览、实体页、关系检索、图谱与重建。
+"""知识图谱关系层管理接口：总览、实体页、关系检索、图谱与重建。
 
 控制台「知识网络」页直接消费这一组接口：左侧实体列表、右侧实体页（出边 / 入边）、
 顶部关系检索用于演示「先命中实体，再沿关系取邻居」。
@@ -141,6 +141,6 @@ async def rebuild(payload: RebuildRequest):
         else:
             items = [await wiki.build_kb(payload.kb_id)]
     except Exception as exc:  # noqa: BLE001
-        logger.exception("LLMWiki 重建失败")
+        logger.exception("知识图谱关系层重建失败")
         raise HTTPException(status_code=500, detail=f"重建失败：{exc}") from exc
     return {"items": items}
