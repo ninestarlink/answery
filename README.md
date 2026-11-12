@@ -4,7 +4,7 @@
 
 同一套 Agent 运行时、同一条检索链路、同一套鉴权与监控。工作台只有一个输入框——商品、订单、制度问题都能问，系统按语义判断该查文档还是调工具。
 
-招聘方一眼能对上的关键词这里都有：**Function Calling**（6 个业务工具，写操作先审批）、**pgvector + BM25 混合检索**（RRF 融合 + Rerank，回答带章节与页码）、**LangGraph Agent**（中断 / 恢复 + 检查点）、**可量化评测**（48 条回归集，Hit@5 100% / MRR 0.948）。在此之上还有一层 **LLMWiki 关系召回**，作为 RAG 之外的增强通道。
+核心是 **Function Calling + pgvector 混合检索 + LangGraph Agent**：模型按问题自主调用 6 个业务工具，写操作先人工审批；检索侧用 pgvector 向量召回 + 中文 BM25，经 RRF 融合后再 rerank，回答带章节与页码。在此基础上还有一层 **LLMWiki 关系召回** 作为 RAG 增强，配套 48 条回归评测，当前 Hit@5 100% / MRR 0.948。
 
 ![stack](https://img.shields.io/badge/React-18-149ECA) ![stack](https://img.shields.io/badge/Next.js-14-000000) ![stack](https://img.shields.io/badge/FastAPI-0.162-009688) ![stack](https://img.shields.io/badge/LangGraph-1.2-1C3C3C) ![stack](https://img.shields.io/badge/Function%20Calling-1C3C3C) ![stack](https://img.shields.io/badge/pgvector-0.8-336791)
 
