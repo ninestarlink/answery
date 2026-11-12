@@ -20,6 +20,7 @@ from sqlalchemy import text
 from ..config import settings
 from ..database import SessionLocal, get_redis
 from ..rag import store as rag_store
+from ..rag import graph_store
 from .auth import require_admin
 
 logger = logging.getLogger("admin")
@@ -585,6 +586,35 @@ async def _probe_services() -> list[dict]:
             "status": "ok" if pg_error is None else "down",
             "latency_ms": round((time.perf_counter() - t0) * 1000, 1),
             "error": pg_error,
+        }
+    )
+
+    t0 = time.perf_counter()
+    neo_error = None
+    try:
+        neo = await graph_store.health()
+        if neo.get("enabled"):
+            neo_target = (
+                f"Neo4j {neo.get('neo4j')} · "
+                f"{neo.get('entities')} 实体 / {neo.get('relations')} 关系"
+            )
+        else:
+            neo_target = "未启用"
+    except Exception as exc:  # noqa: BLE001
+        neo = {}
+        neo_error = str(exc)[:200]
+        neo_target = settings.neo4j_uri
+    services.append(
+        {
+            "name": "Neo4j",
+            "target": neo_target,
+            "status": (
+                "down"
+                if neo_error is not None
+                else ("ok" if neo.get("enabled") else "unconfigured")
+            ),
+            "latency_ms": round((time.perf_counter() - t0) * 1000, 1),
+            "error": neo_error,
         }
     )
 

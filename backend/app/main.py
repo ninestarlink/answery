@@ -16,6 +16,7 @@ from .config import settings
 from .database import SessionLocal, engine, get_redis
 from .rag import store as rag_store
 from .rag import wiki as wiki_store
+from .rag import graph_store
 from .routers import admin, auth, chat, eval, rag, sandbox, tickets, tools, wiki as wiki_router
 from . import sandbox as sandbox_service
 
@@ -52,6 +53,20 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning("pgvector 暂不可用（%s），知识库检索会降级；请执行 docker compose up -d", exc)
 
+    if settings.neo4j_enabled:
+        try:
+            info = await graph_store.health()
+            logger.info(
+                "Neo4j 连接正常：版本 %s，实体 %s 个，关系 %s 条",
+                info["neo4j"],
+                info["entities"],
+                info["relations"],
+            )
+        except Exception as exc:
+            logger.warning(
+                "Neo4j 暂不可用（%s），图关系召回会降级；请执行 docker compose up -d", exc
+            )
+
     if not settings.zhipu_api_key:
         logger.warning("ZHIPU_API_KEY 未配置：聊天与工单分析都会返回明确提示")
     if settings.embedding_provider == "siliconflow" and not settings.siliconflow_api_key:
@@ -67,6 +82,7 @@ async def lifespan(app: FastAPI):
 
     await sandbox_service.shutdown()
     await rag_store.close_pool()
+    await graph_store.close()
     await engine.dispose()
 
 
@@ -99,6 +115,7 @@ async def health():
         "mysql": "ok",
         "redis": "ok",
         "pgvector": "ok",
+        "neo4j": "ok" if settings.neo4j_enabled else "disabled",
         "zhipu_api_key": bool(settings.zhipu_api_key),
         "embedding_provider": settings.embedding_provider,
         "embedding_api_key": bool(
@@ -120,4 +137,9 @@ async def health():
         await rag_store.health()
     except Exception:
         status["pgvector"] = "down"
+    if settings.neo4j_enabled:
+        try:
+            await graph_store.health()
+        except Exception:
+            status["neo4j"] = "down"
     return status

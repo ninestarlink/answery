@@ -64,7 +64,30 @@ services:
       timeout: 5s
       retries: 10
 
+  # 知识图谱关系层：实体页与关系边；向量仍在 pgvector，不重复存 embedding
+  neo4j:
+    image: neo4j:5.26-community
+    container_name: ecom-neo4j
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: neo4j/neo4j123456
+      NEO4J_server_memory_heap_initial__size: 256m
+      NEO4J_server_memory_heap_max__size: 512m
+      NEO4J_server_memory_pagecache_size: 256m
+      TZ: Asia/Shanghai
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - ecom_neo4j_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p neo4j123456 'RETURN 1' || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
 volumes:
   ecom_mysql_data:
   ecom_redis_data:
   ecom_pg_data:
+  ecom_neo4j_data:

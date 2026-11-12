@@ -43,6 +43,14 @@ class Settings(BaseSettings):
     # 知识库索引维度，必须与 embedding 模型输出一致
     rag_embedding_dims: int = 1024
 
+    # ---------- Neo4j（知识图谱关系层） ----------
+    # 向量仍在 pgvector；Neo4j 只存实体页与关系边，用 chunk_id 关联。
+    neo4j_enabled: bool = True
+    neo4j_uri: str = "bolt://127.0.0.1:7687"
+    neo4j_user: str = "neo4j"
+    neo4j_password: str = "neo4j123456"
+    neo4j_database: str = "neo4j"
+
     # ---------- 检索参数 ----------
     rag_dense_top_k: int = 30
     rag_sparse_top_k: int = 30

@@ -16,6 +16,8 @@ PyJWT>=2.10
 bcrypt>=4.2
 # 自建 RAG：pgvector 存向量，asyncpg 直连
 asyncpg>=0.30
+# 知识图谱关系层：Neo4j 存实体页与关系边
+neo4j>=5.26
 # 多格式文档解析（PDF / Word / Excel）
 pymupdf4llm>=0.0.17
 python-docx>=1.1

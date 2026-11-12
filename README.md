@@ -216,7 +216,7 @@ curl -X POST http://127.0.0.1:8000/api/sandbox/run \
 前置：Docker Desktop、Python 3.11+、Node.js 20+。
 
 ```bash
-# 1. 启动 MySQL / Redis / pgvector
+# 1. 启动 MySQL / Redis / pgvector / Neo4j
 docker compose -f backend/docker-compose.yml up -d
 
 # 2. 后端
@@ -258,6 +258,7 @@ Windows 用户也可以直接双击 `start-demo.bat`（需 Node 已在 PATH 中�
 | `SILICONFLOW_EMBEDDING_MODEL` / `SILICONFLOW_RERANK_MODEL` | 向量与精排模型，默认 `bge-m3` / `bge-reranker-v2-m3`，缺失时检索降级为 BM25 |
 | `EMBEDDING_PROVIDER` | 向量/精排供应商，默认 `siliconflow`，可切回 `zhipu` |
 | `PG_DSN` | pgvector 连接串（容器端口 5433） |
+| `NEO4J_URI` / `NEO4J_USER` / `NEO4J_PASSWORD` | 知识图谱关系层连接（容器端口 7687；Phase 1 接入实体页与关系边） |
 | `HISTORY_ROUNDS` | 携带的历史轮数，默认 3 |
 
 ## API 概览
