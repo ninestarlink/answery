@@ -4,7 +4,7 @@
 
 同一套 Agent 运行时、同一条检索链路、同一套鉴权与监控。工作台只有一个输入框——商品、订单、制度问题都能问，系统按语义判断该查文档还是调工具。
 
-其中最有辨识度的两层：**LLMWiki 关系知识层**（把文档组织成实体页 + wikilink/backlink，作为 RAG 之外的关系召回通道）与**评测中台**（48 条金标用例 + 分场景切片 + LLM 裁判，让每次改检索都有数字依据）。
+其中最有辨识度的两层：**LLMWiki 关系知识层**（把文档组织成实体页 + wikilink/backlink，作为 RAG 之外的关系召回通道）与**评测中台**（48 条自建回归评测集 + 分场景切片 + LLM 裁判，让每次改检索都有数字依据）。
 
 ![stack](https://img.shields.io/badge/React-18-149ECA) ![stack](https://img.shields.io/badge/Next.js-14-000000) ![stack](https://img.shields.io/badge/FastAPI-0.162-009688) ![stack](https://img.shields.io/badge/LangGraph-1.2-1C3C3C) ![stack](https://img.shields.io/badge/pgvector-0.8-336791)
 
@@ -39,16 +39,16 @@
 
 大多数 RAG 项目停在「能问答、能引用」，但说不清改完提示词、切片或 rerank 参数之后**到底有没有变好**。这里补了一层可重复的检索评测：
 
-- **48 条金标用例 / 11 类场景**：商品、物流、售后、营销、尺码、关系推理，以及企业制度、信息安全、客服管理、人力资源、合规；每条都绑定「必须命中的文档」。
-- **一次跑批 = 一次可对比的回归**：复用生产检索链路（embedding + BM25 + RRF + rerank + LLMWiki 关系召回），逐条记录首中位次、TopK 来源、耗时与降级原因。
+- **48 条自建回归评测集 / 11 类场景**：商品、物流、售后、营销、尺码、关系推理，以及企业制度、信息安全、客服管理、人力资源、合规；每条绑定「必须命中的文档」，判定粒度为文档级。
+- **一次跑批 = 一次可对比的回归**：复用同一套检索组件（embedding + BM25 + RRF + rerank + LLMWiki 关系召回）按单库评测，线上为 shop / enterprise 两库各自召回后合并精排；逐条记录首中位次、TopK 来源、耗时与降级原因。
 - **指标可解释**：`Hit@5`（期望文档是否进入 Top5 来源）、`MRR`（首个正确来源的平均倒数排名）、`P95 延迟`、`降级检索数`。
 - **分场景切片**：11 类场景各自计算 Hit@5 / MRR / P95，整体分数好看但某类掉分时会立刻暴露。
 - **A/B 对比**：任意两次运行互为基线，输出 `ΔHit@5`、`ΔMRR`、`ΔP95`，并列出逐条提升 / 退化用例。
-- **质量门禁**：`Hit@5 ≥ 85%`、`MRR ≥ 0.70`、降级为 0 才显示 PASS；低于阈值需要先复盘 bad case，再改检索。
+- **质量门禁**：`Hit@5 ≥ 85%`、`MRR ≥ 0.70` 才显示 PASS；降级检索数单独展示，低于阈值需要先复盘 bad case，再改检索。
 - **人工复盘 + 报告导出**：每条用例可标记「待复盘 / 已修复 / 已忽略」，状态跨 run 保留；一键导出带 BOM 的 CSV，Excel 直接打开。
-- **生成质量评测（LLM-as-judge）**：在检索上下文上真实生成回答，再由裁判模型输出忠实度、相关性（1-5）与引用正确性，按 `10 / 20 / 40` 抽样控制成本，补齐「检索命中 ≠ 回答可信」。
+- **生成质量评测（LLM-as-judge）**：基于跑批得到的检索上下文生成回答，再由裁判模型输出忠实度、相关性（1-5）与引用正确性，按 `10 / 20 / 40` 抽样控制成本，补齐「检索命中 ≠ 回答可信」。注意此处使用通用客服提示词，不是线上 Agent 提示词。
 - **数据集在线维护**：用例增删改 + CSV 导入（中英文表头、按编号幂等覆盖），不用改代码或重跑种子脚本。
-- **线上抽样回灌**：从 `chat_trace` 拉取尚未进金标集的真实问题，一键填入表单，补一个期望来源即可沉淀为回归用例。
+- **线上抽样回灌**：从 `chat_trace` 拉取尚未进评测集的真实问题，一键填入表单，补一个期望来源即可沉淀为回归用例。
 - **可下钻**：每条用例能看到期望来源、实际 Top1、命中位次和完整 TopK 文档，不用猜。
 
 最近一次真实运行（`run #7`，本机 MySQL + pgvector + 硅基流动 rerank，含 LLMWiki 关系召回）：
@@ -63,6 +63,8 @@
 | 关系推理切片 | **8/8 命中，MRR 0.938** | 商品 → 政策、制度 → 引用制度、绩效 → 晋升等跨文档问题 |
 | A/B（`top1` → `top5`，run #3/#4） | **+10.0 pp / +0.050 MRR** | 基线为 90.0% / 0.900；4 条提升、0 条退化 |
 | 生成质量抽样 | 2/2 PASS（run #4） | 裁判命中 `products` / `coupons`，忠实度与引用均正确 |
+
+> 口径说明：48 条为自建标注样本，判定粒度为文档级（同文档不同章节不计为命中），用于策略变更前后的回归对比，不作为绝对水平背书。
 
 跑批在后台执行、前端轮询进度，单条结果边跑边落库；接口为 `POST /api/admin/eval/runs`、`GET /api/admin/eval/runs/{id}`、`GET /api/admin/eval/overview`、`GET /api/admin/eval/runs/{id}/compare`、`GET /api/admin/eval/runs/{id}/export`、`POST /api/admin/eval/cases/{id}/review`、`POST /api/admin/eval/runs/{id}/judge`、`GET /api/admin/eval/runs/{id}/judgments`、`POST/PUT/DELETE /api/admin/eval/datasets/{id}/cases`、`POST /api/admin/eval/datasets/{id}/cases/import`、`GET /api/admin/eval/candidates`，全部要求管理员 Token。复现：
 
@@ -139,14 +141,14 @@ curl -X POST http://127.0.0.1:8000/api/sandbox/run \
 
 ### 六、评测中台
 
-- **金标数据集**：`eval_dataset / eval_case / eval_run / eval_result / eval_judgment / eval_case_review` 六张表，48 条用例、11 类场景，电商与企业制度共用同一套检索链路
+- **评测数据集**：`eval_dataset / eval_case / eval_run / eval_result / eval_judgment / eval_case_review` 六张表，48 条用例、11 类场景，电商与企业制度共用同一套检索链路
 - **异步跑批**：后台执行，逐条写入结果；前端轮询 `progress`，可随时切走页面
 - **分场景切片**：按 11 类场景分别汇总 Hit@5 / MRR / P95，横条直接对比基线 delta，短板一眼可见
 - **A/B 对比**：任选历史 run 作基线，输出整体 `ΔHit@5 / ΔMRR / ΔP95` 与逐条提升 / 退化清单
-- **质量门禁**：阈值 85% / 0.70 / 零降级，前端显示 PASS 或 REVIEW
+- **质量门禁**：阈值 85% / 0.70，前端显示 PASS 或 REVIEW；降级检索数单独展示
 - **生成质量评测**：抽样让模型基于检索上下文作答，裁判模型按忠实度 / 相关性 / 引用正确性打分，结果落 `eval_judgment`，失败原因直接展示
 - **数据集维护**：抽屉式用例管理，支持新增、编辑、删除与 CSV 导入；导入按编号幂等，脏数据逐行报错不阻断整批
-- **线上抽样回灌**：从 `chat_trace` 过滤已入库问题，一键填入表单沉淀为新金标用例
+- **线上抽样回灌**：从 `chat_trace` 过滤已入库问题，一键填入表单沉淀为新评测用例
 - **人工复盘**：用例级「待复盘 / 已修复 / 已忽略」状态跨 run 保留，复盘结论不随新跑批丢失
 - **报告导出**：CSV 带 BOM（UTF-8），含场景、位次、耗时、复盘状态与 TopK 来源，可直接进 Excel 或周报
 - **可下钻**：每条用例显示期望文档、实际 Top1、首中位次、耗时和完整 TopK 来源，便于 bad case 复盘
