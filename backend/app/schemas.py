@@ -61,3 +61,9 @@ class TicketStatusUpdate(BaseModel):
     """演示用状态流转：new → in_progress → resolved。"""
 
     status: str = Field(..., description="new / in_progress / resolved")
+
+
+class AutomationRunRequest(BaseModel):
+    """手动触发自动化任务。force=true 时跳过幂等键，用于演示重复执行。"""
+
+    force: bool = Field(False, description="true 时忽略幂等键，强制再跑一次")

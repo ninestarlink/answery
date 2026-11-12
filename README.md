@@ -4,9 +4,26 @@
 
 同一套 Agent 运行时、同一条检索链路、同一套鉴权与监控。工作台只有一个输入框——商品、订单、制度问题都能问，系统按语义判断该查文档还是调工具。
 
-核心是 **Function Calling + pgvector 混合检索 + LangGraph Agent**：模型按问题自主调用 6 个业务工具，写操作先人工审批；检索侧用 pgvector 向量召回 + 中文 BM25，经 RRF 融合后再 rerank，回答带章节与页码。在此基础上还有一层 **LLMWiki 关系召回** 作为 RAG 增强，配套 48 条回归评测，当前 Hit@5 100% / MRR 0.948。
+现在的主线能力：**混合检索（pgvector + BM25 + RRF + rerank）→ 引用到章节页码 → 8 个工具 → 写操作 HITL 审批 → 轨迹落库**；外层配 **48 条回归评测（Hit@5 100% / MRR 0.948）**、**APScheduler 运营自动化** 和 **可替换的 ERP 适配层（内置 Mock ERP）**。LLMWiki 关系召回作为检索增强保留，不启用时主链路照常工作。
 
-![stack](https://img.shields.io/badge/React-18-149ECA) ![stack](https://img.shields.io/badge/Next.js-14-000000) ![stack](https://img.shields.io/badge/FastAPI-0.162-009688) ![stack](https://img.shields.io/badge/LangGraph-1.2-1C3C3C) ![stack](https://img.shields.io/badge/Function%20Calling-1C3C3C) ![stack](https://img.shields.io/badge/pgvector-0.8-336791)
+![stack](https://img.shields.io/badge/React-18-149ECA) ![stack](https://img.shields.io/badge/Next.js-14-000000) ![stack](https://img.shields.io/badge/FastAPI-0.162-009688) ![stack](https://img.shields.io/badge/LangGraph-1.2-1C3C3C) ![stack](https://img.shields.io/badge/Function%20Calling-1C3C3C) ![stack](https://img.shields.io/badge/HITL-Approval-6E4AFF) ![stack](https://img.shields.io/badge/ERP-Adapter-0B7285) ![stack](https://img.shields.io/badge/pgvector-0.8-336791)
+
+## 能力地图
+
+| 模块 | 现在有什么 | 状态 |
+| --- | --- | --- |
+| 对话编排 | LangGraph `route → agent ⇄ tools → approval → resume`，SSE 六类事件帧 | 已实现 |
+| 混合检索 | pgvector HNSW + 中文 BM25 + RRF + rerank，父子切片，429 时降级 BM25-only | 已实现 |
+| 引用溯源 | 回答标注「文档名 / 编号 / 版本 / 章节 / 页码」 | 已实现 |
+| 业务工具 | 商品检索、商品详情、ERP 实时库存、订单、政策、优惠券、工单、自动化触发 | 8 个 |
+| 写操作审批 | `interrupt()` 暂停 → 前端批准 / 拒绝 → `resume` 恢复 | 已实现 |
+| 知识关系层 | `wiki_pages / wiki_links` 实体页、别名、wikilink / backlink、关系召回 | 已实现（增强项） |
+| 评测中台 | 48 条 / 11 类，Hit@5 100%、MRR 0.948，A/B、门禁、LLM 裁判、复盘导出 | 已实现 |
+| 运营自动化 | 3 个定时任务、运行历史、Agent 触发、Excel 导出 | 已实现 |
+| ERP 集成 | 适配层 + Mock ERP，`local / mock / http` 三模式，故障降级并标注来源，只读演示页 | 已实现（模拟数据） |
+| 代码沙箱 | Docker 隔离执行 Python / Node，禁网、只读、超时重建 | 已实现（可选） |
+| 可观测与安全 | `chat_trace`、JWT + RBAC、工具幂等、会话与全站额度 | 已实现 |
+| Neo4j 知识图谱 | 连接与健康检查 | Phase 0，未接检索 |
 
 ## 界面预览
 
@@ -18,13 +35,21 @@
 | --- | --- |
 | ![带出处的回答](docs/screenshots/03-answer.png) | ![运行监控](docs/screenshots/04-monitor.png) |
 
-| 知识网络（LLM Wiki 关系召回） | 评测中台 |
+| 评测中台 | 知识网络（关系召回增强） |
 | --- | --- |
-| ![知识网络](docs/screenshots/06-wiki.png) | ![评测中台](docs/screenshots/05-eval.png) |
+| ![评测中台](docs/screenshots/05-eval.png) | ![知识网络](docs/screenshots/06-wiki.png) |
 
-## LLMWiki：RAG 之外的关系召回增强
+| 运营自动化 | ERP 集成（适配层 + Mock ERP） |
+| --- | --- |
+| ![运营自动化](docs/screenshots/08-automation.png) | ![ERP 集成](docs/screenshots/07-erp.png) |
+
+> 截图来自本机演示环境，数据均为虚构。Neo4j 目前只有连接与健康检查、没有独立页面，因此不放进界面预览。
+
+## 知识关系层（LLMWiki）：RAG 之外的召回增强
 
 LLMWiki 对应 Karpathy 提出的 **LLM Wiki** 模式：入库时把文档编译成带双向链接的持久 Wiki，查询时先命中实体、再沿链接取邻居；相关做法可参考[这篇论文](https://arxiv.org/pdf/2605.25480)。普通 RAG 把文档切成互不相干的 chunk，能召回「一段话」，但接不住「轻云 Pro 的售后按哪份政策」「这条供应商问题最终该看哪份制度」这类**需要跨一篇取值**的问题。LLMWiki 在切片之上补了一层可读的知识组织：
+
+> 定位说明：这是**检索增强项**，不是主链路。`WIKI_ENABLED=false` 时，向量 + BM25 + RRF + rerank 照常工作；前端「知识网络」页也只用于观察关系层，不影响对话入口。
 
 - **实体页**：店铺商品按 `pXXXX` 章节拆成独立商品页，五份政策各成一页；企业侧每份制度一个实体页。每页带标题、摘要、原文摘录与来源文档。
 - **别名索引**：文档编号（`YC-SH-005`）、文件名（`05_客服升级SOP`）、口语叫法（「退货政策」「商品知识库」）都会归一到同一实体，用户不必说全称。
@@ -96,8 +121,9 @@ AnswerY 针对这三点做了完整闭环：**引用到章节与页码 → 工�
 ### 二、Agent 编排（LangGraph）
 
 - 意图路由：先判断「查知识 / 调工具 / 直答」，再决定是否进工具循环
-- 6 个业务工具：商品检索、商品详情、订单查询、店铺政策、优惠券、创建升级工单
+- 8 个工具：商品检索、商品详情、ERP 实时库存、订单查询、店铺政策、优惠券、创建升级工单、自动化任务触发
 - **实体归一**：问题里的商品名 / 订单号先做一次确定性解析，把真实 `product_id` 写进约束，避免模型瞎猜 ID
+- **Agent workflow**：`route → agent ⇄ tools → approval interrupt → resume` 负责单次会话内的编排；它不是 Temporal / Camunda 那种跨服务、长事务的工作流引擎
 
 ### 三、人工审批（HITL）
 
@@ -161,28 +187,66 @@ curl -X POST http://127.0.0.1:8000/api/sandbox/run \
 - **关系召回**：实体命中 → 1 跳邻居 → 取对应原文章节作为额外候选，与原向量 / BM25 候选一起 rerank；关系上下文以 `【LLMWiki 关系知识】` 注入提示词
 - **可运维**：`wiki_pages / wiki_links` 自动建表，启动后台自检构建，管理端一键重建；「知识网络」页可视化实体、别名、出边与入边
 
+### 八、运营自动化
+
+- **代码注册的任务清单**：`kb_sync`（每 10 分钟比对源文件指纹，有变更才触发 ingest）、`nightly_eval`（每天 02:00 跑 48 条检索回归）、`stale_ticket_scan`（每 30 分钟只读巡检超时工单）
+- **进程内调度**：APScheduler 随 FastAPI lifespan 启停，`max_instances=1` + `coalesce`，不引入 Temporal / Airflow 之类的工作流引擎
+- **幂等执行**：每次运行写一行 `automation_runs`，幂等键（如 `nightly_eval:2026-11-13`）由数据库唯一索引兜底；重复触发直接复用已有记录
+- **运行历史**：管理端「运营自动化」页展示任务状态、下次执行时间、耗时、结果摘要与失败原因，支持手动触发与强制重跑
+- **Agent 触发**：对话中可调用 `trigger_automation_job` 触发任务；`kb_sync` 走 HITL 审批，其余直接执行，运行记录标注 `trigger=agent`
+- **Excel 报表**：`GET /api/admin/automation/export` 用 openpyxl 导出运行明细与各任务最近一次摘要，供周报归档
+- **只读优先**：巡检类任务只统计不写业务表，写操作仍走知识库重建或 Agent 审批链路
+
+### 九、ERP 集成（适配层 + Mock ERP）
+
+个人开发者拿不到企业生产 ERP，所以这里展示的是**接入能力**而不是「上过生产」：
+把厂商差异收敛到一层适配器，用虚构 Mock ERP 跑通完整调用链，换真实网关只改配置。
+
+- **契约先行**：`integrations/erp/base.py` 用 Protocol 定义 `get_order / get_stock / pull_master_data`，
+  返回结构直接对齐项目已有的订单与库存契约，Agent、前端、评测用例都不感知供应商
+- **映射集中**：SAP OData 的 `d.results`、状态码（S/D/R）、支付枚举、`/Date(...)/` 时间戳
+  全部在 `map_order / map_stock / map_product` 里转换，字段错位只有一个排查点
+- **Mock ERP 可独立运行**：`python -m app.integrations.erp.mock_service` 起在 8010，
+  提供 `GET /odata/Orders('12345')`、`GET /odata/Stock?$filter=Sku eq 'SKU-P1004-42'`，
+  带 Bearer Token 校验；同一份数据也挂在主应用 `/mock-erp` 下，免启动第二个进程
+- **可降级**：`ERP_MODE=local` 完全绕过 ERP 并标注 `source=local`；`mock` 用内置虚构数据；
+  `http` 走真实网关。超时 / 鉴权失败 / 未配置统一抛 `ErpUnavailable`，网关自动回落本地 MySQL，
+  并在响应 `source` 标注 `local-fallback`，不把兜底数据伪装成 ERP 结果
+- **只读演示页**：前端「ERP 集成」页把连接自检（模式 / 适配器 / 探测耗时）、订单与库存查询、
+  商品主数据放在同一屏，每条结果都带来源徽章与降级原因
+- **进入 Agent**：`erp_stock_check` 工具让模型在用户追问实时库存时走适配层，
+  对话工具卡片显示来源（`mock-erp` / `http-erp` / `local-fallback`）
+
+诚实话术：这是一个可替换的 ERP 接入层 + 虚构 Mock 服务，跑通了鉴权、字段映射、
+超时降级与 Agent 调用链；接真实系统时替换 `ERP_BASE_URL / ERP_API_TOKEN`，
+补上厂商的分页与时间戳格式即可。
+
 ## 架构
 
 ```text
-┌────────────────────────────── 浏览器（Next.js 14 / React 18）──────────────────────────────┐
-│  统一工作台：单输入框混合问答 · 审批卡片 · 来源卡片 · 知识库 · 知识网络 · 运行监控 · 评测中台 │
-└───────────────┬──────────────────────────────────────────────────────────────────────────────┘
+┌─────────────── 浏览器（Next.js 14 / React 18） ─────────────────────────────────────────────────────────────────────────────┐
+│ 统一工作台：混合问答 · 审批卡片 · 来源卡片 · 知识库 · 知识网络 · 监控 · 评测 · 自动化 · ERP 集成                           │
+└───────────────┬─────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
                 │ 同源 /api（rewrites 转发，避免跨域）
-┌───────────────▼──────────────────────────── FastAPI ──────────────────────────────────────────┐
-│ 鉴权层   JWT + bcrypt + RBAC                       SSE 层   统一事件帧（status/message/…）   │
-│ ─────────────────────────────────────────────────────────────────────────────────────────── │
-│ 编排层   LangGraph：route → agent ⇄ tools → approval(interrupt) → resume                      │
-│ 检索层   解析 → 父子切片 → embedding → pgvector+BM25 → RRF → LLMWiki 关系召回 → rerank → 证据链 │
-│ 知识组织 wiki_pages（实体页 / 别名） · wiki_links（wikilink / backlink） → 关系上下文         │
-│ 工具层   商品 / 订单 / 政策 / 优惠券 / 工单（Redis 幂等）                                     │
-│ 记账层   chat_history（Token 成本） · chat_trace（执行轨迹）                                  │
-│ 评测层   eval_case（评测用例） · eval_run（回归） · eval_result（下钻） · eval_judgment（裁判） · eval_case_review（复盘） │
-└──────────┬───────────────────────┬──────────────────────────────┬───────────────────────────┘
-           │                       │                              │
-      MySQL 8                 Redis 7                    PostgreSQL + pgvector
-   业务库/会话/轨迹      历史上下文/额度/幂等      知识库向量（独立实例，端口 5433）
-                                                  + wiki_pages / wiki_links
+┌───────────────▼────────────────────────────────────────── FastAPI ──────────────────────────────────────────────────────────┐
+│ 鉴权层   JWT + bcrypt + RBAC                      SSE 层   统一事件帧（status / message / …）                               │
+│ ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── │
+│ 编排层   LangGraph：route → agent ⇄ tools → approval(interrupt) → resume                                                    │
+│ 检索层   解析 → 父子切片 → embedding → pgvector + BM25 → RRF → LLMWiki 关系召回 → rerank → 证据链                           │
+│ 知识组织 wiki_pages（实体页 / 别名） · wiki_links（wikilink / backlink） → 关系上下文                                       │
+│ 图谱层   Neo4j 连接 / 健康检查 / 监控展示（Phase 0；实体页与关系边读写待 Phase 1 接入）                                     │
+│ 工具层   商品 / 订单 / 政策 / 优惠券 / 工单（Redis 幂等） / 自动化任务触发 / ERP 适配层                                     │
+│ 记账层   chat_history（Token 成本） · chat_trace（执行轨迹）                                                                │
+│ 评测层   eval_case（用例） · eval_run（回归） · eval_result（下钻） · eval_judgment（裁判） · eval_case_review（复盘）      │
+│ 调度层   APScheduler 定时任务（知识库同步 / 夜间回归 / 工单巡检） → automation_runs（运行历史 + 幂等键）                    │
+└────────────────┬───────────────────────────┬─────────────────────────────┬────────────────────────────────┬─────────────────┘
+                 │                           │                             │                                │
+       MySQL 8                   Redis 7                       PostgreSQL + pgvector          Neo4j 5.26
+      业务库 / 会话 / 轨迹      历史上下文 / 额度 / 幂等      知识库向量（端口 5433）        连接 / 健康检查 / 监控
+                                                              + wiki_pages / wiki_links      Phase 0 · 实体与关系未接检索
 ```
+
+> Neo4j 目前只做连接与健康检查（Phase 0）：图中的「图谱层」与 Neo4j 分支代表已接入的依赖与自检，知识关系实际仍存放在 pgvector 的 `wiki_pages / wiki_links`。实体页 / 关系边读写与图检索在 Phase 1 接入主链路之前，不作为已具备的能力对外描述。
 
 ## 目录结构
 
@@ -192,7 +256,9 @@ curl -X POST http://127.0.0.1:8000/api/sandbox/run \
 │   ├── app/
 │   │   ├── agent/          # LangGraph 图、工具、提示词
 │   │   ├── rag/            # 解析、切片、embedding、向量库、BM25、LLMWiki、检索编排
-│   │   ├── routers/        # chat / rag / wiki / admin / eval / auth / tickets / tools
+│   │   ├── routers/        # chat / rag / wiki / admin / eval / automation / auth / tickets / tools / erp
+│   │   ├── integrations/   # ERP 适配层（契约 / 映射 / Mock 服务 / HTTP 客户端）
+│   │   ├── services/       # 自动化任务注册表、幂等执行与调度器生命周期
 │   │   ├── evaluation.py   # 评测用例、跑批与指标汇总
 │   │   ├── eval_judge.py   # 生成质量抽样与 LLM 裁判
 │   │   ├── config.py       # 环境变量
@@ -203,7 +269,7 @@ curl -X POST http://127.0.0.1:8000/api/sandbox/run \
 │   ├── scripts/            # 冒烟测试、检索评测、评测中台初始化、沙箱验收
 │   └── docker-compose.yml  # MySQL / Redis / pgvector
 ├── frontend/               # Next.js 14 App Router
-│   ├── app/                # 页面：工作台、知识库、知识网络、监控、评测中台、登录
+│   ├── app/                # 页面：工作台、知识库、知识网络、监控、评测中台、运营自动化、ERP 集成、登录
 │   ├── components/         # 对话、消息、审批卡、来源卡、侧栏
 │   └── lib/                # SSE 客户端、鉴权、会话 store
 ├── enterprise_kb/          # 企业制度知识库（11 份虚构文档：手册/报销/采购/安全/合规等）
@@ -258,8 +324,11 @@ Windows 用户也可以直接双击 `start-demo.bat`（需 Node 已在 PATH 中�
 | `SILICONFLOW_EMBEDDING_MODEL` / `SILICONFLOW_RERANK_MODEL` | 向量与精排模型，默认 `bge-m3` / `bge-reranker-v2-m3`，缺失时检索降级为 BM25 |
 | `EMBEDDING_PROVIDER` | 向量/精排供应商，默认 `siliconflow`，可切回 `zhipu` |
 | `PG_DSN` | pgvector 连接串（容器端口 5433） |
-| `NEO4J_URI` / `NEO4J_USER` / `NEO4J_PASSWORD` | 知识图谱关系层连接（容器端口 7687；Phase 1 接入实体页与关系边） |
+| `NEO4J_URI` / `NEO4J_USER` / `NEO4J_PASSWORD` | 知识图谱连接（容器端口 7687）；当前仅连接与健康检查，关系检索尚未接入 |
 | `HISTORY_ROUNDS` | 携带的历史轮数，默认 3 |
+| `ERP_MODE` | `local` / `mock` / `http`，默认 `mock`（内置虚构 ERP，开箱即用） |
+| `ERP_BASE_URL` / `ERP_API_TOKEN` | 真实 ERP 网关地址与令牌（`ERP_MODE=http` 时必填） |
+| `MOCK_ERP_TOKEN` | Mock ERP 的 Bearer Token，默认 `demo-erp-token` |
 
 ## API 概览
 
@@ -274,6 +343,14 @@ Windows 用户也可以直接双击 `start-demo.bat`（需 Node 已在 PATH 中�
 | GET | `/api/admin/wiki/search` `/graph` | 关系检索与关系图（admin） |
 | POST | `/api/admin/wiki/rebuild` | 重建关系索引，不影响向量索引（admin） |
 | GET | `/api/admin/traces` | 最近对话轨迹（admin） |
+| GET | `/api/admin/automation/jobs` | 定时任务清单与下次执行时间（admin） |
+| GET | `/api/admin/automation/runs` | 自动化运行历史，可按任务过滤（admin） |
+| POST | `/api/admin/automation/jobs/{key}/run` | 手动触发一次，命中幂等键时复用已有记录（admin） |
+| GET | `/api/admin/automation/export` | 导出运行历史与任务最近结果 Excel（admin） |
+| GET | `/api/erp/health` | ERP 模式、适配器与连通性自检 |
+| GET | `/api/erp/orders/{order_no}` | 订单优先走 ERP，失败降级本地库（`source` 标注） |
+| GET | `/api/erp/stock/{sku}` | ERP 实时库存，无 ERP 时回落本地 SKU 库存 |
+| GET | `/api/erp/master-data/{entity}` | 拉取商品主数据（`entity=products`） |
 | POST | `/api/sandbox/run` | 在隔离容器里执行一段 Python/Node 代码（登录可见） |
 | GET | `/api/sandbox/status` | 沙箱镜像、限制与预热池状态 |
 | GET | `/api/admin/overview` `/monitor` `/services` | 概览、监控、依赖健康（admin） |

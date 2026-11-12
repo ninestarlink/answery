@@ -318,6 +318,26 @@ class EvalCaseReview(Base):
     )
 
 
+class AutomationRun(Base):
+    """一次自动化任务的执行记录：幂等键唯一，重复触发直接复用已有记录。"""
+
+    __tablename__ = "automation_runs"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    job_key: Mapped[str] = mapped_column(String(32), index=True)
+    job_name: Mapped[str] = mapped_column(String(64))
+    # schedule / manual / agent
+    trigger: Mapped[str] = mapped_column(String(16), default="schedule")
+    # running / success / failed
+    status: Mapped[str] = mapped_column(String(16), default="running")
+    idempotency_key: Mapped[str] = mapped_column(String(128), unique=True)
+    summary: Mapped[dict | None] = mapped_column(JSON, default=None)
+    error: Mapped[str | None] = mapped_column(String(512), default=None)
+    started_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    duration_ms: Mapped[int] = mapped_column(Integer, default=0)
+
+
 class Ticket(Base):
     """IT 工单：由本地规则引擎从自然语言报障生成，字段全部可解释。"""
 

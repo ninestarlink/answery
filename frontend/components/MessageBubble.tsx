@@ -305,6 +305,7 @@ function shouldWarnUngrounded(message: UIMessage, app?: string) {
 /** 写操作工具的中文名，审批卡直接给人看人话 */
 const ACTION_LABELS: Record<string, string> = {
   create_escalation_ticket: '创建人工工单',
+  trigger_automation_job: '触发自动化任务',
 };
 
 /**

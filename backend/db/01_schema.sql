@@ -12,7 +12,8 @@ CREATE DATABASE IF NOT EXISTS ecom_ai_demo
 USE ecom_ai_demo;
 
 DROP TABLE IF EXISTS chat_trace, chat_history, store_policies, coupons, shipment_events,
-  shipments, order_items, orders, customers, product_variants, products, talk_templates, tickets;
+  shipments, order_items, orders, customers, product_variants, products, talk_templates, tickets,
+  automation_runs;
 
 -- -------------------------------------------------------------
 -- 商品
@@ -337,5 +338,26 @@ CREATE TABLE eval_case_review (
   PRIMARY KEY (id),
   UNIQUE KEY uk_eval_case_review_case (case_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='金标用例人工复盘状态';
+
+-- -------------------------------------------------------------
+-- 自动化：定时任务执行历史（幂等键唯一，重复触发复用已有记录）
+-- -------------------------------------------------------------
+CREATE TABLE automation_runs (
+  id              BIGINT       NOT NULL AUTO_INCREMENT,
+  job_key         VARCHAR(32)  NOT NULL,
+  job_name        VARCHAR(64)  NOT NULL,
+  trigger         VARCHAR(16)  NOT NULL DEFAULT 'schedule' COMMENT 'schedule/manual/agent',
+  status          VARCHAR(16)  NOT NULL DEFAULT 'running' COMMENT 'running/success/failed',
+  idempotency_key VARCHAR(128) NOT NULL COMMENT '如 nightly_eval:2026-11-13',
+  summary         JSON         DEFAULT NULL,
+  error           VARCHAR(512) DEFAULT NULL,
+  started_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  finished_at     DATETIME     DEFAULT NULL,
+  duration_ms     INT          NOT NULL DEFAULT 0,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_automation_runs_idem (idempotency_key),
+  KEY idx_automation_runs_job (job_key),
+  KEY idx_automation_runs_started (started_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='自动化任务执行历史';
 
 SET FOREIGN_KEY_CHECKS = 1;

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -15,6 +16,7 @@ from fastapi import HTTPException
 from langchain_core.tools import tool
 
 from ..database import SessionLocal, get_redis
+from ..integrations.erp import get_erp_adapter, normalize_sku
 from ..models import Ticket
 from ..routers.tickets import _next_ticket_no
 from ..routers.tools import (
@@ -82,6 +84,29 @@ async def get_product(product_id: str) -> tuple[str, dict]:
     except Exception as exc:  # noqa: BLE001
         logger.warning("get_product 失败：%s", exc)
         return _error(exc)
+
+
+@tool("erp_stock_check", response_format="content_and_artifact")
+async def erp_stock_check(sku: str) -> tuple[str, dict]:
+    """查询 ERP 实时可用库存。sku 可传 SKU-P1004-42，也可传 variant_id（如 p1004-42）。"""
+    code = normalize_sku(sku)
+    if not code:
+        return _error(ValueError("sku 不能为空，形如 SKU-P1004-42"))
+
+    adapter = get_erp_adapter()
+    if adapter is None:
+        return _error(
+            ValueError("ERP 未启用（ERP_MODE=local），请改用 get_product 查看尺码库存")
+        )
+
+    try:
+        data = await adapter.get_stock(code)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("erp_stock_check 失败：%s", exc)
+        return _error(exc)
+
+    payload = {**data, "source": adapter.name}
+    return _dump(payload), payload
 
 
 @tool("get_order", response_format="content_and_artifact")
@@ -192,11 +217,62 @@ async def create_escalation_ticket(
         return _error(exc)
 
 
+# create_task 的返回值必须留引用，否则任务可能在执行前被回收
+_automation_tasks: set[asyncio.Task] = set()
+
+
+@tool("trigger_automation_job", response_format="content_and_artifact")
+async def trigger_automation_job(job_key: str) -> tuple[str, dict]:
+    """触发一次已注册的后台自动化任务：kb_sync / nightly_eval / stale_ticket_scan。"""
+    # 延迟导入：避免 Agent 模块在 apscheduler 不可用时整体导入失败
+    from ..services import automation
+
+    key = (job_key or "").strip()
+    job = automation.JOBS.get(key)
+    if job is None:
+        return _error(
+            ValueError(f"未知任务 {job_key!r}，可选：{' / '.join(automation.JOBS)}")
+        )
+
+    try:
+        record, duplicated = await automation.create_run(key, trigger="agent")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("trigger_automation_job 失败：%s", exc)
+        return _error(exc)
+
+    if duplicated:
+        payload = {
+            "run_id": record.id,
+            "job_key": key,
+            "job_name": job.name,
+            "status": record.status,
+            "duplicated": True,
+            "note": "幂等键已存在，未重复执行，直接复用已有运行记录",
+        }
+        return _dump(payload), payload
+
+    task = asyncio.create_task(automation.execute_run(record.id, key))
+    _automation_tasks.add(task)
+    task.add_done_callback(_automation_tasks.discard)
+
+    payload = {
+        "run_id": record.id,
+        "job_key": key,
+        "job_name": job.name,
+        "status": "running",
+        "duplicated": False,
+        "note": "已提交后台执行，可在「运营自动化」页查看运行结果",
+    }
+    return _dump(payload), payload
+
+
 SHOP_TOOLS = [
     search_products,
     get_product,
+    erp_stock_check,
     get_order,
     get_policies,
     get_coupons,
     create_escalation_ticket,
+    trigger_automation_job,
 ]

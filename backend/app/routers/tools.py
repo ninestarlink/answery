@@ -141,6 +141,7 @@ async def _product_detail(db: AsyncSession, product_id: str) -> dict:
         "variants": [
             {
                 "variant_id": v.id,
+                "sku": v.sku,
                 "size": v.size,
                 "color": v.color,
                 "stock": v.stock,

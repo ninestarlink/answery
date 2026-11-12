@@ -34,8 +34,26 @@ logger = logging.getLogger("agent.graph")
 
 MAX_TOOL_ROUNDS = 3
 
-# 需要人工确认的写操作
-WRITE_TOOLS = {"create_escalation_ticket"}
+# 需要人工确认的写操作文案；trigger_automation_job 仅 kb_sync（重建索引）需要确认
+APPROVAL_COPY = {
+    "create_escalation_ticket": (
+        "创建人工工单需要确认",
+        "工单会写入业务库并触发人工跟进，属于不可逆写操作",
+    ),
+    "trigger_automation_job": (
+        "同步知识库需要确认",
+        "kb_sync 会重建向量索引，属于写操作",
+    ),
+}
+
+
+def _needs_approval(call: dict[str, Any]) -> bool:
+    name = str(call.get("name") or "")
+    if name == "create_escalation_ticket":
+        return True
+    if name == "trigger_automation_job":
+        return str((call.get("args") or {}).get("job_key") or "") == "kb_sync"
+    return False
 
 
 class AgentState(TypedDict, total=False):
@@ -147,23 +165,26 @@ async def _tools(state: AgentState) -> dict[str, Any]:
 
 
 async def _approval(state: AgentState) -> dict[str, Any]:
-    """写操作前的人工闸门：create_escalation_ticket 必须由前端确认后才执行。
+    """写操作前的人工闸门：建工单、kb_sync 必须由前端确认后才执行。
 
     interrupt() 会暂停图并把 payload 传给客户端；恢复时把确认结果作为返回值。
     """
     last = (state.get("messages") or [None])[-1]
     calls = getattr(last, "tool_calls", None) or []
-    targets = [c for c in calls if c.get("name") in WRITE_TOOLS]
+    targets = [c for c in calls if _needs_approval(c)]
     if not targets:
         return {}
 
     call = targets[0]
+    title, reason = APPROVAL_COPY.get(
+        str(call.get("name") or ""), ("该操作需要确认", "写操作不可逆")
+    )
     payload = {
         "type": "approval",
         "action": call.get("name"),
-        "title": "创建人工工单需要确认",
+        "title": title,
         "args": call.get("args") or {},
-        "reason": "工单会写入业务库并触发人工跟进，属于不可逆写操作",
+        "reason": reason,
     }
     decision = interrupt(payload)
 
@@ -179,9 +200,13 @@ async def _approval(state: AgentState) -> dict[str, Any]:
         return {"approval": {"approved": True, "by": by}}
 
     # 拒绝后补一条 ToolMessage，让模型改走自助方案，而不是继续调用写工具
+    if any(str(c.get("name") or "") == "trigger_automation_job" for c in targets):
+        content = "操作已取消：人工确认未通过，任务没有执行。请如实告知用户未执行，不要声称已完成。"
+    else:
+        content = "操作已取消：人工确认未通过。请改为给出自助解决方案，并告知用户可以稍后联系人工。"
     rejected = [
         ToolMessage(
-            content="操作已取消：人工确认未通过。请改为给出自助解决方案，并告知用户可以稍后联系人工。",
+            content=content,
             tool_call_id=str(c.get("id") or ""),
             name=str(c.get("name") or ""),
         )

@@ -30,6 +30,11 @@ enterprise_kb/_pc/
 # 已下线功能（报价对比）留下的文件，不入库
 supplier_quotes/
 
+# ===== 本地智能体配置（不入库）=====
+.agent/
+.trae/
+AGENTS.md
+
 # ===== 系统 =====
 .DS_Store
 Thumbs.db

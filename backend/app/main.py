@@ -14,10 +14,24 @@ from sqlalchemy import text
 
 from .config import settings
 from .database import SessionLocal, engine, get_redis
+from .integrations.erp.mock_service import mock_erp_app
 from .rag import store as rag_store
 from .rag import wiki as wiki_store
 from .rag import graph_store
-from .routers import admin, auth, chat, eval, rag, sandbox, tickets, tools, wiki as wiki_router
+from .routers import (
+    admin,
+    auth,
+    automation as automation_router,
+    chat,
+    erp,
+    eval,
+    rag,
+    sandbox,
+    tickets,
+    tools,
+    wiki as wiki_router,
+)
+from .services import automation as automation_service
 from . import sandbox as sandbox_service
 
 logging.basicConfig(
@@ -74,12 +88,18 @@ async def lifespan(app: FastAPI):
 
     await sandbox_service.warm_up()
 
+    # 自动化：建表 + 注册定时任务；MySQL 不可用时只打日志，不阻断启动
+    await automation_service.start()
+
+    logger.info("ERP 适配层：ERP_MODE=%s", settings.erp_mode)
+
     # 关系索引为空时后台建一次：不阻塞启动，失败也不影响 RAG 主链路
     if settings.wiki_enabled:
         app.state.wiki_build_task = asyncio.create_task(wiki_store.ensure_built())
 
     yield
 
+    await automation_service.stop()
     await sandbox_service.shutdown()
     await rag_store.close_pool()
     await graph_store.close()
@@ -105,6 +125,12 @@ app.include_router(admin.router)
 app.include_router(eval.router)
 app.include_router(wiki_router.router)
 app.include_router(sandbox.router)
+app.include_router(automation_router.router)
+app.include_router(erp.router)
+
+# Mock ERP 挂在主应用下：免起第二个进程也能直接查看 OData 接口。
+# 接真实 ERP 时删掉这行挂载即可，业务链路不受影响。
+app.mount("/mock-erp", mock_erp_app)
 
 
 @app.get("/health", tags=["system"])

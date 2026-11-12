@@ -118,6 +118,15 @@ class Settings(BaseSettings):
     # 单个账号 10 分钟内最多执行次数
     sandbox_quota: int = 20
 
+    # ---------- ERP 集成（适配层 + Mock ERP） ----------
+    # erp_mode: local（只查本地库）/ mock（内置虚构 ERP，默认开箱即用）/ http（真实网关）
+    erp_mode: str = "mock"
+    erp_base_url: str = ""
+    erp_api_token: str = ""
+    erp_timeout: float = 5.0
+    # Mock ERP 服务的 Bearer Token，独立进程与主应用挂载共用
+    mock_erp_token: str = "demo-erp-token"
+
     # ---------- 网页抓取 ----------
     # 已移除网页抓取 / 比价 / 多模态等小工具，项目聚焦电商客服与企业知识库
 

@@ -202,6 +202,49 @@ export interface TracesResponse {
   traces: ChatTraceRow[];
 }
 
+/** 自动化：代码注册的定时任务 */
+export interface AutomationJob {
+  key: string;
+  name: string;
+  /** crontab 表达式 */
+  schedule: string;
+  schedule_label: string;
+  description: string;
+  next_run_at: string | null;
+}
+
+export interface AutomationJobsResponse {
+  jobs: AutomationJob[];
+  scheduler_running: boolean;
+}
+
+export type AutomationStatus = 'running' | 'success' | 'failed';
+
+/** 一次自动化任务的执行记录（后端 automation_runs 表） */
+export interface AutomationRunRow {
+  id: number;
+  job_key: string;
+  job_name: string;
+  trigger: 'schedule' | 'manual' | 'agent';
+  status: AutomationStatus;
+  idempotency_key: string;
+  summary: Record<string, unknown> | null;
+  error: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  duration_ms: number;
+}
+
+export interface AutomationRunsResponse {
+  items: AutomationRunRow[];
+  total: number;
+}
+
+export interface AutomationTriggerResponse {
+  run: AutomationRunRow;
+  duplicated: boolean;
+}
+
 /** 评测中台：一次批量运行 */
 export interface EvalRun {
   id: number;
@@ -511,6 +554,31 @@ export const adminApi = {
   services: () => getJSON<ServicesResponse>('/api/admin/services', 0),
   traces: (limit = 20) =>
     getJSON<TracesResponse>(`/api/admin/traces?limit=${limit}`, 0),
+  automationJobs: () => getJSON<AutomationJobsResponse>('/api/admin/automation/jobs', 0),
+  automationRuns: (limit = 20, jobKey?: string) =>
+    getJSON<AutomationRunsResponse>(
+      `/api/admin/automation/runs?limit=${limit}` +
+        (jobKey ? `&job_key=${encodeURIComponent(jobKey)}` : ''),
+      0,
+    ),
+  automationRun: (key: string, force = false) =>
+    postJSON<AutomationTriggerResponse>(
+      `/api/admin/automation/jobs/${encodeURIComponent(key)}/run`,
+      { force },
+    ),
+  automationExport: async () => {
+    const res = await fetch(`${API_BASE}/api/admin/automation/export`, {
+      cache: 'no-store',
+      headers: authHeaders(),
+    });
+    if (res.status === 401) {
+      clearSession();
+      redirectToLogin();
+      throw new Error('登录已过期，请重新登录');
+    }
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    return res.blob();
+  },
   evalOverview: () => getJSON<EvalOverview>('/api/admin/eval/overview', 3_000),
   evalRun: (id: number) => getJSON<EvalRunDetail>(`/api/admin/eval/runs/${id}`, 0),
   evalStart: (payload: { dataset_id?: number; top_k?: number; note?: string }) =>

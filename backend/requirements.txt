@@ -28,3 +28,5 @@ langchain-openai>=0.2.10
 langchain-core>=0.3.20
 # 代码执行沙箱：Docker SDK 控制预热容器池
 docker>=7.1
+# 轻量定时调度（进程内，不引入工作流引擎）
+apscheduler>=3.10

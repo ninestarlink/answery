@@ -69,6 +69,22 @@ const NAV_ITEMS: NavItem[] = [
       <path d="M4 4h16v3H4V4zm0 5.5h4v10H4V9.5zm6 0h4v10h-4V9.5zm6 0h4v10h-4V9.5z" />
     ),
   },
+  {
+    href: '/automation',
+    label: '运营自动化',
+    short: '自动化',
+    icon: (
+      <path d="M13 2L4.5 13.5H11l-1 8.5 8.5-11.5H12l1-8.5z" />
+    ),
+  },
+  {
+    href: '/erp',
+    label: 'ERP 集成',
+    short: 'ERP',
+    icon: (
+      <path d="M4 7h6v2H6v9h12v-4h2v6H4V7zm10-3h6v6h-2V7.41l-7.29 7.3-1.42-1.42L16.59 6H14V4z" />
+    ),
+  },
 ];
 
 function NavIcon({ children, className = '' }: { children: React.ReactNode; className?: string }) {
@@ -153,7 +169,9 @@ export default function AppShell({
 
         <div className="relative flex items-center justify-between px-5 pb-2 pt-4">
           <span className="mono-label text-[9.5px] text-muted">Workspace</span>
-          <span className="mono-label text-[9.5px] text-muted">00—05</span>
+          <span className="mono-label text-[9.5px] text-muted">
+            00—{String(NAV_ITEMS.length - 1).padStart(2, '0')}
+          </span>
         </div>
 
         <nav className="relative flex-1 space-y-1.5 px-3 pt-1">
